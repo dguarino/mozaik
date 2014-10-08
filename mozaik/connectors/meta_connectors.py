@@ -171,6 +171,7 @@ class GaborConnector(BaseComponent):
                              'short_term_plasticity' : self.parameters.short_term_plasticity,
                              'base_weight' : self.parameters.base_weight,
                              'num_samples' : self.parameters.num_samples,
+                             'fan_in' : True,
                           })
         ModularSamplingProbabilisticConnector(network,name+'On',lgn_on,target,ps).connect()
         ps['weight_functions.f1.params.ON']=False
