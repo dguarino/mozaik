@@ -80,6 +80,7 @@ class GaborConnector(BaseComponent):
 
         'phase_map': bool,  # is a phase map supplied?
         'phase_map_location': str,  # if phase_map is True where can one find the map. It has to be a file containing a single pickled 2d numpy array
+        'fan_in' : bool, # whether the connections have to be created as fan in to the target or not
     })
 
     def __init__(self, network, lgn_on, lgn_off, target, parameters, name):
@@ -171,7 +172,7 @@ class GaborConnector(BaseComponent):
                              'short_term_plasticity' : self.parameters.short_term_plasticity,
                              'base_weight' : self.parameters.base_weight,
                              'num_samples' : self.parameters.num_samples,
-                             'fan_in' : True,
+                             'fan_in' : self.parameters.fan_in,
                           })
         ModularSamplingProbabilisticConnector(network,name+'On',lgn_on,target,ps).connect()
         ps['weight_functions.f1.params.ON']=False
