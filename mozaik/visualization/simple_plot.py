@@ -850,7 +850,7 @@ class StandardStyleLinePlot(StandardStyle):
             pylab.hold('on')
 
             tmin = min(tmin, self.x[i][0])
-            tmax = min(tmax, self.x[i][-1])
+            tmax = max(tmax, self.x[i][-1])
 
         if self.mean:
             m = m / len(self.x)
