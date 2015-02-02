@@ -390,7 +390,7 @@ class TrialAveragedCorrectedCrossCorrelation(Analysis):
 
       def perform_analysis(self):
           for sheet in self.datastore.sheets() :
-              # get a datastore view containing for each sheet
+              # get a datastore view for each sheet
               dsv = queries.param_filter_query(self.datastore, sheet_name=sheet)
               # Locate a pair of neurons to be at furthest positions in the sheet:
               # take neurons ids, get their indexes, get their positions in the sheet, 
@@ -415,14 +415,13 @@ class TrialAveragedCorrectedCrossCorrelation(Analysis):
               for idd,idx in rec_idd_idx:
                   #print "neuron(",idd,idx,") position:", positions[sheet][0][ idx ], positions[sheet][1][ idx ]
                   # search lowest id
-                  if lower_range[0]<=positions[sheet][0][idx] and positions[sheet][0][idx]<=lower_range[1]:
-                      if positions[sheet][0][idx] < positions[sheet][0][ pair_ids_idx[0][1] ]:
-                          pair_ids_idx[0] = (idd,idx)
+                  if positions[sheet][0][idx] < positions[sheet][0][ pair_ids_idx[0][1] ]:
+                      pair_ids_idx[0] = (idd,idx)
                   # search highest id
-                  if higher_range[0]<=positions[sheet][0][idx] and positions[sheet][0][idx]<=higher_range[1]:
-                      if positions[sheet][0][idx] > positions[sheet][0][ pair_ids_idx[1][1] ]:
-                          pair_ids_idx[1] = (idd,idx)
-                          #print "neuron(",idx,") position:", positions[sheet][0][ idx ], positions[sheet][1][ idx ]
+                  if positions[sheet][0][idx] > positions[sheet][0][ pair_ids_idx[1][1] ]:
+                      pair_ids_idx[1] = (idd,idx)
+                      #print "neuron(",idx,") position:", positions[sheet][0][ idx ], positions[sheet][1][ idx ]
+                  #print pair_ids_idx
               # extract only ids
               pair_ids = [ x[0] for x in pair_ids_idx ]
               print "    lowest id (",pair_ids[0],") position:", positions[sheet][0][ pair_ids_idx[0][1] ], positions[sheet][1][ pair_ids_idx[0][1] ]
@@ -462,6 +461,8 @@ class TrialAveragedCorrectedCrossCorrelation(Analysis):
                                   qt.dimensionless,
                                   sheet_name = sheet,
                                   tags = self.tags,
+                                  x_axis_name = 'Time from reference',
+                                  y_axis_name = 'Corrected cross-correlation (bin=' + str(self.parameters.bin_length) + ')',
                                   analysis_algorithm = self.__class__.__name__,
                                   stimulus_id = str(stimid)
                               )
@@ -502,6 +503,7 @@ class TrialAveragedCorrectedCrossCorrelation(Analysis):
               # Save 
               self.datastore.full_datastore.add_analysis_result( 
                   numpy.sum([ xcorr for xcorr in shift_xcorr[trial] for trial in shift_xcorr.keys() ]).division_by_num(len(shift_xcorr.keys()))
+                  #numpy.sum([ xcorr for xcorr in raw_xcorr[trial] for trial in raw_xcorr.keys() ]).division_by_num(len(raw_xcorr.keys()))
               )
                 
       def cross_correlation( self, reference, target, bins, bin_length ):

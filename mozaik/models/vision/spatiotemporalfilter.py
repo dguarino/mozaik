@@ -256,8 +256,8 @@ class CellWithReceptiveField(object):
         nA. Returns a dictionary containing 'times' and 'amplitudes'.
         """
         # Naka-Rushton
-        if self.receptive_field.naka_rushton_output_function != None:
-            self.response = self.receptive_field.naka_rushton_output_function.Rmax * ( abs(self.response) / (abs(self.response)+self.receptive_field.naka_rushton_output_function.c50) ) * numpy.sign(self.response)
+        # if self.receptive_field.naka_rushton_output_function != None:
+        #    self.response = self.receptive_field.naka_rushton_output_function.Rmax * ( abs(self.response) / (abs(self.response)+self.receptive_field.naka_rushton_output_function.c50) ) * numpy.sign(self.response)
         # current response
         response = self.gain * self.response[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end
         time_points = self.receptive_field.temporal_resolution * numpy.arange(0, len(response))
