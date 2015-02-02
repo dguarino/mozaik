@@ -336,7 +336,7 @@ class StandardStyle(SimplePlot):
                  phf.short_tick_labels_axis(self.axis.xaxis)
             else:
                 if self.x_tick_style == 'Min':
-                    phf.three_tick_axis(self.axis.xaxis)
+                    phf.three_tick_axis(self.axis.xaxis,log=(self.x_scale!='linear'))
                 elif self.x_tick_style == 'Custom':                
                    phf.disable_xticks(self.axis)
                    phf.remove_x_tick_labels()
@@ -356,7 +356,7 @@ class StandardStyle(SimplePlot):
                  phf.short_tick_labels_axis(self.axis.yaxis)
             else:
                 if self.y_tick_style == 'Min':
-                    phf.three_tick_axis(self.axis.yaxis)
+                    phf.three_tick_axis(self.axis.yaxis,log=(self.y_scale!='linear'))
                 elif self.y_tick_style == 'Custom':                
                    phf.disable_yticks(self.axis)
                    phf.remove_y_tick_labels()
@@ -575,8 +575,9 @@ class PixelMovie(StandardStyleAnimatedPlot):
           
     """
     
-    def __init__(self, movie,**param):
+    def __init__(self, movie,background_luminance,**param):
         StandardStyleAnimatedPlot.__init__(self,**param)
+        self.background_luminance = background_luminance
         self.movie = movie
         self.l = len(movie)
         self.i = 0
@@ -591,7 +592,7 @@ class PixelMovie(StandardStyleAnimatedPlot):
         return self.im
 
     def plot(self):
-        self.im = self.axis.imshow(self.movie[0],interpolation='nearest',vmin=0,vmax=100,cmap='gray')
+        self.im = self.axis.imshow(self.movie[0],interpolation='nearest',vmin=0,vmax=self.background_luminance*2,cmap='gray')
 
 
 class ScatterPlotMovie(StandardStyleAnimatedPlot):
@@ -625,25 +626,29 @@ class ScatterPlotMovie(StandardStyleAnimatedPlot):
         self.parameters["bottom_border"] = False
 
     def plot_next_frame(self):
+        #vmax = numpy.max(self.z)/2.0
+        #d= numpy.array([[1.0,1.0,1.0,x/vmax] for x in self.z[self.i, :].flatten()])
         self.scatter.set_array(self.z[self.i, :].flatten())
         self.i = self.i + 1
         if self.i == self.l:
             self.i = 0
+        print self.i
         return self.scatter
 
     def plot(self):
-        vmin = 0
-        vmax = numpy.max(self.z)
+        vmax = numpy.max(self.z)/4.0
+        #d= numpy.array([[1,1,1,x/vmax] for x in self.z[0, :].flatten()])
+        #print numpy.shape(d)
         self.scatter = self.axis.scatter(self.x.flatten(), self.y.flatten(),
                                          c=self.z[0, :].flatten(),
                                          s=self.parameters["dot_size"],
                                          marker=self.parameters["marker"],
-                                         lw=1,
-                                         cmap='gray',
-                                         vmin=vmin,
-                                         vmax=vmax)
+                                         lw=0,
+                                         vmax=vmax,
+                                         alpha=0.4,
+                                         cmap='gray')
         pylab.axis('equal')
-
+        pylab.gca().set_axis_bgcolor('black')
 
 class ScatterPlot(StandardStyle):
     """
@@ -858,7 +863,6 @@ class StandardStyleLinePlot(StandardStyle):
 
         if self.legend:
             self.axis.legend()
-
         self.x_lim = (tmin, tmax)
 
 class ConductancesPlot(StandardStyle):
@@ -1058,9 +1062,20 @@ class HistogramPlot(StandardStyle):
     def __init__(self, values,**param):
         StandardStyle.__init__(self,**param)
         self.values = values
-        self.parameters["num_bins"] = 30.0
+        self.parameters["num_bins"] = 15.0
+        self.parameters["log"] = False
 
     def plot(self):
-        self.axis.hist(self.values,bins=self.num_bins,range=self.x_lim,edgecolor='none')
+        
+        if self.parameters["log"]:
+            mmin  = numpy.floor(numpy.log10(numpy.min(numpy.array(self.values)[numpy.nonzero(self.values)])))
+            bins = numpy.logspace(mmin,numpy.ceil(numpy.log10(numpy.max(self.values))),self.num_bins)
+            
+            if numpy.min(self.values) == 0.0:
+               bins = numpy.concatenate([[0.0],bins])
+        else:
+            bins = self.num_bins   
+            
+        self.axis.hist(self.values,bins=bins,range=self.x_lim,edgecolor='none')
         self.y_label = '#'
         

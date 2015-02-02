@@ -58,7 +58,7 @@ from neo.core.spiketrain import SpikeTrain as NeoSpikeTrain
 from simple_plot import StandardStyleLinePlot, SpikeRasterPlot, \
                         SpikeHistogramPlot, ConductancesPlot, PixelMovie, \
                         ScatterPlotMovie, ScatterPlot, ConnectionPlot, SimplePlot, HistogramPlot
-from plot_constructors import LinePlot, PerStimulusPlot, PerStimulusADSPlot
+from plot_constructors import LinePlot, PerStimulusPlot, PerStimulusADSPlot, ADSGridPlot
 
 import mozaik
 logger = mozaik.getMozaikLogger()
@@ -151,7 +151,7 @@ class Plotting(ParametrizedObject):
         t1 = time.time()
         if params == None:
             params = {}
-        self.fig = pylab.figure(facecolor='w', **self.fig_param)
+        self.fig = pylab.figure(facecolor='b', **self.fig_param)
         gs = gridspec.GridSpec(1, 1)
         gs.update(left=0.05, right=0.95, top=0.95, bottom=0.05)
         self._handle_parameters_and_execute_plots({}, params,gs[0, 0])
@@ -161,14 +161,16 @@ class Plotting(ParametrizedObject):
           import matplotlib.animation as animation
           self.animation = animation.FuncAnimation(self.fig,
                                       Plotting.update_animation_function,
+                                      frames = 400,
+                                      repeat=False,
                                       fargs=(self,),
                                       interval=self.frame_duration,
-                                      blit=False)
+                                      blit=False,save_count=0)
         gs.tight_layout(self.fig)
         if self.plot_file_name:
             #if there were animations, save them
             if self.animation_update_functions != []:
-                self.animation.save(Global.root_directory+self.plot_file_name+'.gif', writer='imagemagick', fps=10) 
+                self.animation.save(Global.root_directory+self.plot_file_name+'.mov', writer='avconv', fps=10,bitrate=5000) 
             else:
                 # save the analysis plot
                 pylab.savefig(Global.root_directory+self.plot_file_name)              
@@ -240,8 +242,8 @@ class PlotTuningCurve(Plotting):
         self.max_mean_response_indexes = []
         assert queries.ads_with_equal_stimulus_type(datastore)
         assert len(self.parameters.neurons) > 0 , "ERROR, empty list of neurons specified"
-        if self.parameters.mean:
-            assert self.parameters.centered , "Average tuning curve can be plotted only if the tuning curves are centerd"
+        #if self.parameters.mean:
+        #    assert self.parameters.centered , "Average tuning curve can be plotted only if the tuning curves are centerd"
         
         dsvs = queries.partition_analysis_results_by_parameters_query(self.datastore,parameter_list=['value_name'],excpt=True)
         for dsv in dsvs:
@@ -251,13 +253,6 @@ class PlotTuningCurve(Plotting):
             # get stimuli
             st = [MozaikParametrized.idd(s.stimulus_id) for s in self.pnvs[-1]]
             self.st.append(st)
-            # transform the pnvs into a dictionary of tuning curves along the parameter_name
-            # also make sure the values are ordered according to ids in the first pnv
-            #print "ZZZZZZZZZ"
-            #for z in self.pnvs[-1]:
-            #    print z.ids 
-            #    print self.parameters.neurons[0] in z.ids 
-            #    z.get_value_by_id(self.parameters.neurons)
             
             dic = colapse_to_dictionary([z.get_value_by_id(self.parameters.neurons) for z in self.pnvs[-1]],st,self.parameters.parameter_name)
             #sort the entries in dict according to the parameter parameter_name values 
@@ -312,7 +307,11 @@ class PlotTuningCurve(Plotting):
                 if self.parameters.mean:
                     v = 0
                     for j in xrange(0,len(self.parameters.neurons)):
-                        vv,p = self.center_tc(val[:,j],par,period,self.max_mean_response_indexes[i][j])
+                        if self.parameters.centered:
+                            vv,p = self.center_tc(val[:,j],par,period,self.max_mean_response_indexes[i][j])
+                        else:
+                            vv = val[:,j]
+                            p = par
                         v = v + vv
                     val = v / len(self.parameters.neurons)
                     par = p
@@ -406,7 +405,7 @@ class PlotTuningCurve(Plotting):
                params["x_tick_labels"]  = []
                params["y_tick_labels"]  = []
                params['grid'] = True
-               params['fill'] = True
+               params['fill'] = False
             
             if not bottom_row:
                 params["x_axis"] = None
@@ -562,6 +561,7 @@ class VmPlot(Plotting):
                     "mean" : True,
                     "colors" : colors,
                     "x_lim" : (t_start, t_stop), 
+                    "y_lim" : (-80.0, -40.0), 
                     "x_ticks": x_ticks,
                     "x_label": 'time(' + vms[0].t_stop.dimensionality.latex + ')',
                     "y_label": 'Vm(' + vms[0].dimensionality.latex + ')'
@@ -876,7 +876,6 @@ class PerNeuronPairAnalogSignalListPlot(Plotting):
 
     def _ploter(self, dsv, subplotspec):
         self.analog_signal_list = dsv.get_analysis_result()
-        #print "self.analog_signal_list:",self.analog_signal_list
         assert len(self.analog_signal_list) != 0, "ERROR, empty datastore"
         assert len(self.analog_signal_list) == 1, "Currently only one AnalogSignalList per stimulus can be plotted"
         self.analog_signal_list = self.analog_signal_list[0] # take only one, the first
@@ -907,6 +906,12 @@ class RetinalInputMovie(Plotting):
         self.retinal_input = datastore.get_sensory_stimulus()
         self.st = datastore.sensory_stimulus.keys()
         
+        # remove internal stimuli from the list 
+        self.retinal_input = [self.retinal_input[i] for i in xrange(0,len(self.st)) if MozaikParametrized.idd(self.st[i]).name != 'InternalStimulus']
+        self.st = [self.st[i]  for i in xrange(0,len(self.st)) if MozaikParametrized.idd(self.st[i]).name != 'InternalStimulus']
+        
+        
+        
     def subplot(self, subplotspec):
         return LinePlot(function=self._ploter,
                  length=len(self.retinal_input)
@@ -918,7 +923,7 @@ class RetinalInputMovie(Plotting):
         title = title + stimulus.name + '\n'
         for pn, pv in stimulus.get_param_values():
                 title = title + pn + ' : ' + str(pv) + '\n'
-        return [('PixelMovie',PixelMovie(self.retinal_input[idx]),gs,{'x_axis':False, 'y_axis':False, "title" : title})]
+        return [('PixelMovie',PixelMovie(self.retinal_input[idx],MozaikParametrized.idd(self.st[idx]).background_luminance),gs,{'x_axis':False, 'y_axis':False, "title" : title})]
 
 
 
@@ -956,7 +961,7 @@ class ActivityMovie(Plotting):
 
     def subplot(self, subplotspec):
         dsv = queries.param_filter_query(self.datastore,sheet_name=self.parameters.sheet_name)
-        return PerStimulusPlot(dsv, function=self._ploter, title_style="Standard").make_line_plot(subplotspec)
+        return PerStimulusPlot(dsv, function=self._ploter, title_style="Clever").make_line_plot(subplotspec)
 
     def _ploter(self, dsv, gs):
         sp = [s.spiketrains for s in dsv.get_segments()]
@@ -967,16 +972,17 @@ class ActivityMovie(Plotting):
         bw = self.parameters.bin_width * pq.ms
         bw = bw.rescale(units).magnitude
         bins = numpy.arange(start, stop, bw)
-
-
         h = []
         for spike_trains in sp:
             hh = []
             for st in spike_trains:
                 hh.append(numpy.histogram(st.magnitude, bins, (start, stop))[0])
+                #lets make activity of each neuron relative to it's maximum activity
             h.append(numpy.array(hh))
         
-        h = numpy.sum(h, axis=0)
+        h = numpy.mean(h, axis=0)
+        
+        #lets normalize against the maximum response for given neuron
         
         pos = dsv.get_neuron_postions()[self.parameters.sheet_name]
 
@@ -1028,8 +1034,7 @@ class PerNeuronValuePlot(Plotting):
                 
     Notes
     -----
-    So far doesn't support the situation where several types of
-    PerNeuronValue analysys data structures are present in the supplied
+    So far doesn't support the situation where several types of PerNeuronValue analysys data structures are present in the supplied
     datastore.
     """
     
@@ -1043,47 +1048,41 @@ class PerNeuronValuePlot(Plotting):
         self.poss = []
         self.pnvs = []
         self.sheets = []
-        for sheet in datastore.sheets():
-            dsv = queries.param_filter_query(self.datastore,sheet_name=sheet)
-            z = dsv.get_analysis_result(identifier='PerNeuronValue')
-            if len(z) != 0:
-                if len(z) > 1:
-                    logger.error('Warning currently only one PerNeuronValue per sheet will be plotted!!!')
-                self.poss.append(datastore.get_neuron_postions()[sheet])
-                self.pnvs.append(z)
-                self.sheets.append(sheet)
-        
-        if len(self.poss):
-           logger.error('No PerNeuronValue plots found!')
-        self.length=len(self.poss)
+        self.dsv = queries.param_filter_query(self.datastore,identifier='PerNeuronValue')
 
     def subplot(self, subplotspec):
-        return LinePlot(function=self._ploter,length=self.length).make_line_plot(subplotspec)
+        return ADSGridPlot(self.dsv,function=self._ploter,x_axis_parameter='value_name',y_axis_parameter='sheet_name').make_grid_plot(subplotspec)
 
-    def _ploter(self, idx, gs):
-        if self.parameters.cortical_view:
-            posx = self.poss[idx][0,self.datastore.get_sheet_indexes(self.sheets[idx],self.pnvs[idx][0].ids)]
-            posy = self.poss[idx][1,self.datastore.get_sheet_indexes(self.sheets[idx],self.pnvs[idx][0].ids)]
-            values = self.pnvs[idx][0].values
-            if self.pnvs[idx][0].period != None:
+    def _ploter(self, dsv, gs):
+         z = dsv.get_analysis_result(identifier='PerNeuronValue')
+         if len(z) > 1:
+            logger.error('Warning sheet name and value name does\'t seem to uniquely identify and PerNeuronValue ADS in the datastore, we cannot plot more than one!')
+        
+         pnv = z[0]
+         sheet_name = pnv.sheet_name
+         pos = self.dsv.get_neuron_postions()[sheet_name]            
+        
+         if self.parameters.cortical_view:
+            posx = pos[0,self.datastore.get_sheet_indexes(sheet_name,pnv.ids)]
+            posy = pos[1,self.datastore.get_sheet_indexes(sheet_name,pnv.ids)]
+            values = pnv.values
+            if pnv.period != None:
                 periodic = True
-                period = self.pnvs[idx][0].period
+                period = pnv.period
             else:
                 periodic = False
                 period = None
             params = {}
             params["x_label"] = 'x'
             params["y_label"] = 'y'
-            params["title"] = self.sheets[idx] + '\n' + self.pnvs[idx][0].value_name
-            params["colorbar_label"] = self.pnvs[idx][0].value_units.dimensionality.latex
+            params["colorbar_label"] = pnv.value_units.dimensionality.latex
             params["colorbar"]  = True
 
             return [("ScatterPlot",ScatterPlot(posx, posy, values, periodic=periodic,period=period),gs,params)]
-        else:
+         else:
             params = {}
             params["y_label"] = '# neurons'
-            params["title"] = self.pnvs[idx][0].value_name
-            return [("HistogramPlot",HistogramPlot([self.pnvs[idx][0].values]),gs,params)]
+            return [("HistogramPlot",HistogramPlot([pnv.values]),gs,params)]
 
 
 
@@ -1094,23 +1093,23 @@ class PerNeuronValueScatterPlot(Plotting):
     It defines line of plots named: 'ScatterPlot.Plot0' ... 'ScatterPlot.PlotN
     """
     
+    required_parameters = ParameterSet({
+          'only_matching_units':bool,  # only plot combinations of PNVs that have the same value units.
+    })
+    
+    
     def __init__(self, datastore, parameters, plot_file_name=None,fig_param=None):
         Plotting.__init__(self, datastore, parameters, plot_file_name, fig_param)
 
         self.pairs = []
         self.sheets = []
-        print datastore.sheets()
         for sheet in datastore.sheets():
             pnvs = datastore.get_analysis_result(identifier='PerNeuronValue',sheet_name=sheet)
             if len(pnvs) < 2:
                raise ValueError('At least 2 DSVs have to be provided') 
-            print "XXX"
             for i in xrange(0,len(pnvs)):
                 for j in xrange(i+1,len(pnvs)):
-                    print "ZZZ"
-                    print pnvs[i].value_units
-                    print pnvs[j].value_units
-                    if pnvs[i].value_units == pnvs[j].value_units:
+                    if (pnvs[i].value_units == pnvs[j].value_units) or not self.parameters.only_matching_units:
                        self.pairs.append((pnvs[i],pnvs[j]))
                        self.sheets.append(sheet) 
                        
@@ -1214,8 +1213,9 @@ class ConnectivityPlot(Plotting):
             for dsv in z:
                 a = dsv.get_analysis_result(identifier='PerNeuronValue')
                 self.pnvs.append(a[0])
-        
+        print len(self.pnvs)
         for conn in _connections:
+            print conn
             if not self.parameters.reversed and conn.source_name == self.parameters.sheet_name:
                 # add outgoing projections from sheet_name
                 self.connecting_neurons_positions.append(
