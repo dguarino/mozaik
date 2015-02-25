@@ -13,6 +13,8 @@ from mozaik.sheets import Sheet
 logger = mozaik.getMozaikLogger()
 
 
+
+
 class RetinalUniformSheet(Sheet):
     """
     Retinal sheet corresponds to a grid of retinal cells (retinal ganglion cells or photoreceptors). 
@@ -28,7 +30,7 @@ class RetinalUniformSheet(Sheet):
        Y size of the region.
 
     density : int
-            Number of neurons along both axis.
+            Number of neurons per deg^2.
     """
     required_parameters = ParameterSet({
         'sx': float,  # degrees, x size of the region
@@ -54,6 +56,8 @@ class RetinalUniformSheet(Sheet):
 
     def size_in_degrees(self):
         return (self.parameters.sx, self.parameters.sy)
+
+
 
 
 class SheetWithMagnificationFactor(Sheet):
@@ -154,6 +158,8 @@ class SheetWithMagnificationFactor(Sheet):
         return self.cs_2_vf(self.parameters.sx, self.parameters.sy)
 
 
+
+
 class VisualCorticalUniformSheet(SheetWithMagnificationFactor):
     """
     Represents a visual cortical sheet of neurons, randomly uniformly distributed in cortical space.
@@ -170,7 +176,9 @@ class VisualCorticalUniformSheet(SheetWithMagnificationFactor):
 
     def __init__(self, model, parameters):
         SheetWithMagnificationFactor.__init__(self, model, parameters)
+
         dx, dy = self.cs_2_vf(parameters.sx, parameters.sy)
+        
         rs = space.RandomStructure(boundary=space.Cuboid(dx, dy, 0),
                                    origin=(0.0, 0.0, 0.0),
                                    rng=mozaik.pynn_rng)

@@ -1213,7 +1213,6 @@ class ConnectivityPlot(Plotting):
             for dsv in z:
                 a = dsv.get_analysis_result(identifier='PerNeuronValue')
                 self.pnvs.append(a[0])
-        print len(self.pnvs)
         for conn in _connections:
             print conn
             if not self.parameters.reversed and conn.source_name == self.parameters.sheet_name:

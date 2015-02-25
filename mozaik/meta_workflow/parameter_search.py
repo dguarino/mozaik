@@ -32,23 +32,28 @@ class LocalSequentialBackend(object):
     This is the simplest backend that simply executes the simulation on the present 
     machine sequentially (i.e. it waits for the simulation to end before starting new one).
     """
-     
+    def __init__(self, num_threads):
+        self.num_threads = num_threads
+
+
     def execute_job(self,run_script,simulator_name,parameters_url,parameters,simulation_run_name):
-         """
-         This function recevies the list of parameters to modify and their values, and has to 
-         execute the corresponding mozaik simulation.
+        """
+        This function recevies the list of parameters to modify and their values, and has to 
+        execute the corresponding mozaik simulation.
          
-         Parameters
-         ----------
-         parameters : dict
-                    The dictionary holding the names of parameters to be modified as keys, and the values to set them to as the corresponding values. 
-         """
-         modified_parameters = []
-         for k in parameters.keys():
-             modified_parameters.append(k)
-             modified_parameters.append(str(parameters[k]))
+        Parameters
+        ----------
+        parameters : dict
+                   The dictionary holding the names of parameters to be modified as keys, and the values to set them to as the corresponding values. 
+        """
+        modified_parameters = []
+        for k in parameters.keys():
+            modified_parameters.append(k)
+            modified_parameters.append(str(parameters[k]))
          
-         subprocess.call(' '.join(["python", run_script, simulator_name, parameters_url]+modified_parameters+['ParameterSearch']),shell=True)
+        subprocess.call(' '.join(["python", run_script, simulator_name, str(self.num_threads), parameters_url]+modified_parameters+[simulation_run_name]),shell=True)
+
+
 
 
 class SlurmSequentialBackend(object):

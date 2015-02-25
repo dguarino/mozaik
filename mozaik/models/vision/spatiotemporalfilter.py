@@ -10,7 +10,7 @@ import mozaik
 import cai97
 from mozaik.space import VisualSpace, VisualRegion
 from mozaik.core import SensoryInputComponent
-from mozaik.sheets.vision import RetinalUniformSheet
+from mozaik.sheets.vision import VisualCorticalUniformSheet
 from mozaik.tools.mozaik_parametrized import MozaikParametrized
 from parameters import ParameterSet
 
@@ -324,6 +324,7 @@ class SpatioTemporalFilterRetinaLGN(SensoryInputComponent):
     required_parameters = ParameterSet({
         'density': int,  # neurons per degree squared
         'size': tuple,  # degrees of visual field
+        'magnification_factor' : float,
         'linear_scaler': float,  # linear scaler that the RF output is multiplied with
         'cached': bool,
         'cache_path': str,
@@ -372,16 +373,21 @@ class SpatioTemporalFilterRetinaLGN(SensoryInputComponent):
         self.ncs = {}
         self.ncs_rng = {}
         for rf_type in self.rf_types:
-            p = RetinalUniformSheet(model,
-                                    ParameterSet({'sx': self.parameters.size[0],
-                                                  'sy': self.parameters.size[1],
-                                                  'density': self.parameters.density,
-                                                  'cell': self.parameters.cell,
-                                                  'name': rf_type,
-                                                  'artificial_stimulators' : {},
-                                                  'recorders' : self.parameters.recorders,
-                                                  'recording_interval'  :  self.parameters.recording_interval,
-                                                  'mpi_safe': False}))
+            p = VisualCorticalUniformSheet(
+                model,
+                ParameterSet({
+                    'sx': self.parameters.size[0]*self.parameters.magnification_factor,
+                    'sy': self.parameters.size[1]*self.parameters.magnification_factor,
+                    'density': self.parameters.density/(self.parameters.magnification_factor**2/1000**2),
+                    'magnification_factor' : self.parameters.magnification_factor,
+                    'cell': self.parameters.cell,
+                    'name': rf_type,
+                    'artificial_stimulators' : {},
+                    'recorders' : self.parameters.recorders,
+                    'recording_interval'  :  self.parameters.recording_interval,
+                    'mpi_safe': False
+                })
+            )
             self.sheets[rf_type] = p
         
         for rf_type in self.rf_types:

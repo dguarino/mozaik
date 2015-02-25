@@ -53,7 +53,7 @@ class DistanceDependentModularConnectorFunction(ModularConnectorFunction):
     def distance_dependent_function(self,distance):
         """
         The is the function, dependent only on distance that each DistanceDependentModularConnectorFunction has to implement.
-        The distance can be matrix.
+        The distance can be matrix, and is in micrometers.
         """
         raise NotImplemented
     
