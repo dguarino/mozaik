@@ -85,11 +85,11 @@ class Model(BaseComponent):
             
         self.simulator_time = 0
 
-    def present_stimulus_and_record(self, stimulus,artificial_stimulators):
+    def present_stimulus_and_record(self, stimulus, artificial_stimulators):
         """
         This method is the core of the model execution control. It ensures that a `stimulus` is presented
         to the model, the simulation is ran for the duration of the stimulus, and all the data recorded during 
-        this period are retieved from the simulator. It also makes sure a blank stimulus preceds each stimulus presntation.
+        this period are retrieved from the simulator. It also makes sure a blank stimulus preceds each stimulus presentation.
         
         Parameters
         ----------

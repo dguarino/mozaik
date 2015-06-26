@@ -27,9 +27,9 @@ class InputSpace(ParametrizedObject):
     The basic idea of the InputSpace API is following:
     
     The InputSpace assumes there is a scene, and a set of stimuli in this scene (visual objects, sounds, smells etc.).
-    These objects can be removed or added to the scene. After each interval lasting  `update_interval` miliseconds all the stimuli in the scene
+    These objects can be removed or added to the scene. After each interval lasting  `update_interval` milliseconds all the stimuli in the scene
     are sequentially updated (following some rules of overlapping, this is left for the specific implementation of the input space).
-    After that update the scene is ready to be pased to the associated input sheet of the given model, which will use it to 
+    After that update the scene is ready to be passed to the associated input sheet of the given model, which will use it to 
     generate the responses of neurons in the input sheet.
     
     Other parameters

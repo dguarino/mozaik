@@ -1,6 +1,16 @@
 # encoding: utf-8
 """
 Retina/LGN model based on that developed by Jens Kremkow (CNRS-INCM/ALUF)
+
+The class SpatioTemporalReceptiveField is a component declared in the param file as one of the thing the Model class has to run.
+
+During run-time, the function Model.present_stimulus_and_record() is executed.
+To produce the sensory input, it calls process_input() that in turn calls _calculate_input_currents().
+
+Inside _calculate_input_currents, 
+a CellWithReceptiveField() is instantiated, its initialize() called.
+Then, in a loop for each stimulus frame the cell.view() is called, which does the convolution of receptive_field.kernel * view_array.
+Finally, the cell.response_current() is called, at the end of stimulus presentation, to translate the unitless convolution into nA.
 """
 
 import numpy
@@ -37,8 +47,10 @@ class SpatioTemporalReceptiveField(object):
     ----------
     func : function
          should be a function of x, y, t, and a ParameterSet object
+
     func_params : ParameterSet
                 ParameterSet that is passed to `func`.
+
     width : float (degrees)
           x-dimension size
 
@@ -62,6 +74,10 @@ class SpatioTemporalReceptiveField(object):
         self.kernel = None
         self.spatial_resolution = numpy.inf
         self.temporal_resolution = numpy.inf
+        # print "self.width", float(width)
+        # print "self.height",float(height)
+        # print "self.duration",float(duration)
+
 
     def quantize(self, dx, dy, dt):
         """
@@ -75,7 +91,7 @@ class SpatioTemporalReceptiveField(object):
         dy : float
            The number of pixels along y axis.
         
-        dy : float
+        dt : float
            The number of time bins along the t axis.
         
         Notes
@@ -84,6 +100,7 @@ class SpatioTemporalReceptiveField(object):
         divide exactly into the width, then the actual width will be slightly
         larger than the nominal width. `dx` and `dy` should be in degrees and `dt` in ms.
         """
+        # print "quantize: ", dx, dy, dt
         assert dx == dy  # For now, at least
         nx = numpy.ceil(self.width/dx)
         ny = numpy.ceil(self.height/dy)
@@ -99,19 +116,17 @@ class SpatioTemporalReceptiveField(object):
 
         x = numpy.linspace(0.0, width - dx, width/dx) + dx/2.0 - width/2.0
         y = numpy.linspace(0.0, height - dy, height/dy) + dx/2.0 - height/2.0
-
         # t is the time at the beginning of each timestep
         t = numpy.arange(0.0, duration, dt)
         X, Y, T = meshgrid3D(y, x, t)  # x,y are reversed because (x,y) <--> (j,i)
-        kernel = self.func(X, Y, T, self.func_params)
-        #logger.debug("Created receptive field kernel: width=%gº, height=%gº, duration=%g ms, shape=%s" %
-        #                 (width, height, duration, kernel.shape))
-        #logger.debug("before normalization: min=%g, max=%g" %
-        #                 (kernel.min(), kernel.max()))
+
+        # RF
+        kernel = self.func( X, Y, T, self.func_params )
+        #logger.debug("Created receptive field kernel: width=%gº, height=%gº, duration=%g ms, shape=%s" % (width, height, duration, kernel.shape))
+        #logger.debug("before normalization: min=%g, max=%g" % (kernel.min(), kernel.max()))
         kernel = kernel/(nx * ny * nt)  # normalize to make the kernel sum quasi-independent of the quantization
 
-        #logger.debug("  after normalization: min=%g, max=%g, sum=%g" %
-        #                 (kernel.min(), kernel.max(), kernel.sum()))
+        #logger.debug("  after normalization: min=%g, max=%g, sum=%g" % (kernel.min(), kernel.max(), kernel.sum()))
         self.kernel = kernel
         self.spatial_resolution = dx
         self.temporal_resolution = dt
@@ -159,7 +174,7 @@ class CellWithReceptiveField(object):
                  The object representing the visual space.
     """
 
-    def __init__(self, x, y, receptive_field, gain_control,visual_space):
+    def __init__(self, x, y, receptive_field, gain_control, visual_space):
         self.x = x  # position in space
         self.y = y  #
         self.visual_space = visual_space
@@ -207,7 +222,6 @@ class CellWithReceptiveField(object):
         # R0 = K_0.I_0 + Sum[j=1,L-1] K_j.B
         # R1 = K_0.I_1 + K_1.I_0 + Sum[j=2,L-1] K_j.B
         # the image-dependent components will be added in view(), so we need to
-        
         # initialize with the Sum[] k_j.B components
         self.background_luminance = background_luminance
         self.response = numpy.zeros((self.response_length,))
@@ -220,7 +234,7 @@ class CellWithReceptiveField(object):
             self.response[i] += background_luminance * self.receptive_field.kernel[:, :, i+1:L].sum()
         
         for i in range(L):
-            self.response[-(i+1)] += background_luminance * self.receptive_field.kernel[:, :,0:L-i].sum()
+            self.response[-(i+1)] += background_luminance * self.receptive_field.kernel[:, :, 0:L-i].sum()
         self.i = 0
         
     def view(self):
@@ -232,12 +246,12 @@ class CellWithReceptiveField(object):
              where L is the kernel length/duration
         Where the kernel temporal resolution = (frame duration)/α (α an integer)
            R_k = Sum[j=0,L-1] K_j.I_i'
-             where i' = (k-j)//α  (// indicates integer division, discarding the
-             remainder)
+             where i' = (k-j)//α  (// indicates integer division, discarding the remainder)
         To avoid loading the entire image sequence into memory, we build up the response array one frame at a time.
         """
         # window for each RF
         view_array = self.visual_space.view( self.visual_region, pixel_size=self.receptive_field.spatial_resolution )
+        
         # convolution
         product = self.receptive_field.kernel * view_array[:, :, numpy.newaxis]
         self.std[self.i] = numpy.std(view_array)
@@ -249,7 +263,6 @@ class CellWithReceptiveField(object):
             #                  (self.response[j:j+self.receptive_field.kernel_duration].shape,
             #                   time_course.shape, j, len(self.response),
             #                   update_factor, time_course))
-
             # make sure we do not go beyond response array - this could happen if
             # visual_space.update_interval/self.receptive_field.temporal_resolution is not integer
             self.response[j: j+self.receptive_field.kernel_duration] += time_course[:len(self.response[j: j+self.receptive_field.kernel_duration])]
@@ -261,23 +274,23 @@ class CellWithReceptiveField(object):
         kernel values are dimensionless) by the 'gain', to produce a current in
         nA. Returns a dictionary containing 'times' and 'amplitudes'.
         """
-        k = numpy.squeeze(numpy.mean(numpy.squeeze(numpy.mean(numpy.abs(self.receptive_field.kernel),axis=0)),axis=0))
-        self.std = numpy.convolve(self.std,k[::-1]/numpy.sqrt(numpy.power(k,2).sum()),mode='same')
         if self.gain_control.non_linear_gain != None:
+            # Non-linear terms for luminance and contrast gain
+            k = numpy.squeeze(numpy.mean(numpy.squeeze(numpy.mean(numpy.abs(self.receptive_field.kernel),axis=0)),axis=0))
+            std = numpy.convolve(self.std,k/numpy.sqrt(numpy.power(k,2).sum()),mode='same')
             c = numpy.sum(self.receptive_field.kernel.flatten())*self.mean
             L = self.receptive_field.kernel_duration
             for i in range(L):
                 c[i] += (self.background_luminance - numpy.mean(self.mean[:L])) * self.receptive_field.kernel[:, :, i+1:L].sum()  
-            
             for i in range(L):
                 c[-(i+1)] += (self.background_luminance - numpy.mean(self.mean[-L:])) * self.receptive_field.kernel[:, :,0:L-i].sum()
-                
-            ta = self.gain_control.gain * (self.response-c) / (self.gain_control.non_linear_gain.contrast_scaler*self.std+1.0)  
+            ta = self.gain_control.gain * (self.response-c) / (self.gain_control.non_linear_gain.contrast_scaler*std+1.0)  
             tb = self.gain_control.non_linear_gain.luminance_gain * c / (self.gain_control.non_linear_gain.luminance_scaler*self.mean+1.0)
             response = (ta+tb)[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end                             
-        # current response
         else:
+            # Linear gain
             response = self.gain_control.gain * self.response[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end
+        # time point resolution
         time_points = self.receptive_field.temporal_resolution * numpy.arange(0, len(response))
         return {'times': time_points, 'amplitudes': response}
 
@@ -531,8 +544,7 @@ class SpatioTemporalFilterRetinaLGN(SensoryInputComponent):
 
         if cached == None:
             logger.debug("Generating output spikes...")
-            (input_currents, retinal_input) = self._calculate_input_currents(visual_space,
-                                                                            duration)
+            (input_currents, retinal_input) = self._calculate_input_currents(visual_space, duration)
         else:
             logger.debug("Retrieved spikes from cache...")
             (input_currents, retinal_input) = cached
@@ -631,6 +643,7 @@ class SpatioTemporalFilterRetinaLGN(SensoryInputComponent):
                                            * self.ncs_rng[rf_type][i].randn(len(t)))
                         ncs.set_parameters(times=t, amplitudes=amplitudes)
 
+
     def _calculate_input_currents(self, visual_space, duration):
         """
         Calculate the input currents for all cells.
@@ -638,7 +651,6 @@ class SpatioTemporalFilterRetinaLGN(SensoryInputComponent):
         assert isinstance(visual_space, VisualSpace)
         if duration is None:
             duration = visual_space.get_maximum_duration()
-
 
         # create population of CellWithReceptiveFields, setting the receptive
         # field centres based on the size/location of self
@@ -654,7 +666,7 @@ class SpatioTemporalFilterRetinaLGN(SensoryInputComponent):
                 cell = CellWithReceptiveField(self.sheets[rf_type].pop.positions[0][i],
                                               self.sheets[rf_type].pop.positions[1][i],
                                               self.rf[rf_type],
-                                              self.parameters.gain_control,visual_space)
+                                              self.parameters.gain_control, visual_space)
                 cell.initialize(visual_space.background_luminance, duration)
                 input_cells[rf_type].append(cell)
 
@@ -677,6 +689,31 @@ class SpatioTemporalFilterRetinaLGN(SensoryInputComponent):
 
         input_currents = {}
         for rf_type in self.rf_types:
-            input_currents[rf_type] = [cell.response_current()
-                                       for cell in input_cells[rf_type]]
+            input_currents[rf_type] = [ cell.response_current() for cell in input_cells[rf_type] ]
+
         return (input_currents, retinal_input)
+
+
+
+
+
+
+
+
+# class SpatioTemporalFilterGainControl( SpatioTemporalFilterRetinaLGN ):
+
+#     def __init__(self, x, y, receptive_field, gain_control, visual_space):
+#         super(SpatioTemporalFilterGainControl).__init__(self, x, y, receptive_field, gain_control, visual_space)
+
+#         # initialize the distance matrix
+
+
+#     def _calculate_input_currents(self, visual_space, duration):
+            
+#         (input_currents, retinal_input) = super(SpatioTemporalFilterGainControl)._calculate_input_currents(self, visual_space, duration)
+
+#         # modify input currents with Carandini formula
+#         # for rf_type in self.rf_types:
+#         #     input_currents[rf_type] = [ cell.response_current() for cell in input_cells[rf_type] ]
+
+#         return (input_currents, retinal_input)

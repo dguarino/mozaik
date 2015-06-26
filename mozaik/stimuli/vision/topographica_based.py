@@ -111,7 +111,7 @@ class FullfieldDriftingSinusoidalGrating(TopographicaBasedVisualStimulus):
     contrast = SNumber(dimensionless,bounds=[0,100.0],doc="Contrast of the stimulus")
 
     def frames(self):
-        self.current_phase=0
+        self.current_phase=pi/2
         i = 0
         while True:
             i += 1
