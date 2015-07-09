@@ -18,11 +18,13 @@ import os.path
 import pickle
 import mozaik
 import cai97
+from pyNN import space
 from mozaik.space import VisualSpace, VisualRegion
 from mozaik.core import SensoryInputComponent
 from mozaik.sheets.vision import VisualCorticalUniformSheet
 from mozaik.sheets.vision import RetinalUniformSheet
 from mozaik.tools.mozaik_parametrized import MozaikParametrized
+from mozaik.connectors.fast import OneToOneConnector
 from parameters import ParameterSet
 
 logger = mozaik.getMozaikLogger()
@@ -298,7 +300,7 @@ class CellWithReceptiveField(object):
 
 class SpatioTemporalFilterRGC(SensoryInputComponent):
     """
-    Retina/LGN model with spatiotemporal receptive field.
+    Retina model with spatiotemporal receptive field.
     
     Parameters
     ----------
@@ -338,7 +340,6 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
     required_parameters = ParameterSet({
         'density': int,  # neurons per degree squared
         'size': tuple,  # degrees of visual field
-        # 'magnification_factor' : float,
         'linear_scaler': float,  # linear scaler that the RF output is multiplied with
         'cached': bool,
         'cache_path': str,
@@ -354,54 +355,28 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
             'temporal_resolution': float,
             'duration': float,
             
-            }),
+        }),
         'cell': ParameterSet({
             'model': str,
             'params': ParameterSet,
             'initial_values': ParameterSet,
         }),
         'gain_control' : {
-                    'gain' : float,
-                    'non_linear_gain' : ParameterSet({
-                        'luminance_gain' : float,
-                        'luminance_scaler' : float,
-                        'contrast_scaler' : float,
-                    })
-                    
-                },
+            'gain' : float,
+            'non_linear_gain' : ParameterSet({
+                'luminance_gain' : float,
+                'luminance_scaler' : float,
+                'contrast_scaler' : float,
+            })
+        },
         'noise': ParameterSet({
             'mean': float,
             'stdev': float,  # nA
         }),
     })
 
-    def __init__(self, model, parameters):
-        SensoryInputComponent.__init__(self, model, parameters)
-        self.shape = (self.parameters.density,self.parameters.density)
-        self.sheets = {}
-        self._built = False
-        self.rf_types = ('X_ON', 'X_OFF')
-        sim = self.model.sim
-        self.pops = {}
-        self.scs = {}
-        self.ncs = {}
-        self.ncs_rng = {}
+    def init_mozaik_sheets(self, model):
         for rf_type in self.rf_types:
-            # p = VisualCorticalUniformSheet(
-            #     model,
-            #     ParameterSet({
-            #         'sx': self.parameters.size[0]*self.parameters.magnification_factor,
-            #         'sy': self.parameters.size[1]*self.parameters.magnification_factor,
-            #         'density': self.parameters.density/(self.parameters.magnification_factor**2/1000**2),
-            #         'magnification_factor' : self.parameters.magnification_factor,
-            #         'cell': self.parameters.cell,
-            #         'name': rf_type,
-            #         'artificial_stimulators' : {},
-            #         'recorders' : self.parameters.recorders,
-            #         'recording_interval'  :  self.parameters.recording_interval,
-            #         'mpi_safe': False
-            #     })
-            # )
             p = RetinalUniformSheet(model,
                                     ParameterSet({'sx': self.parameters.size[0],
                                                   'sy': self.parameters.size[1],
@@ -412,14 +387,32 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                                                   'recorders' : self.parameters.recorders,
                                                   'recording_interval'  :  self.parameters.recording_interval,
                                                   'mpi_safe': False}))
-            self.sheets[rf_type] = p
+            self.mozaik_sheets[rf_type] = p
+            self.pops[rf_type] = p.pop
+
+    def __init__(self, model, parameters):
+        SensoryInputComponent.__init__(self, model, parameters)
+        self.shape = (self.parameters.density,self.parameters.density)
+        self.mozaik_sheets = {}
+        self._built = False
+        self.rf_types = ('X_ON', 'X_OFF')
+        sim = self.model.sim
+        self.on_pop = None
+        self.off_pop = None
+        self.pops = {}
+
+        self.scs = {}
+        self.ncs = {}
+        self.ncs_rng = {}
         
+        self.init_mozaik_sheets(model)
+
         for rf_type in self.rf_types:
             self.scs[rf_type] = []
             self.ncs[rf_type] = []
             self.ncs_rng[rf_type] = []
-            seeds=mozaik.get_seeds((self.sheets[rf_type].pop.size,))
-            for i, lgn_cell in enumerate(self.sheets[rf_type].pop.all_cells):
+            seeds=mozaik.get_seeds((self.pops[rf_type].size,))
+            for i, lgn_cell in enumerate(self.pops[rf_type].all_cells):
                 scs = sim.StepCurrentSource(times=[0.0], amplitudes=[0.0])
 
                 if not self.parameters.mpi_reproducible_noise:
@@ -427,7 +420,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 else:
                     ncs = sim.StepCurrentSource(times=[0.0], amplitudes=[0.0])
         
-		if self.sheets[rf_type].pop._mask_local[i]:
+		if self.pops[rf_type]._mask_local[i]:
 			self.ncs_rng[rf_type].append(numpy.random.RandomState(seed=seeds[i]))
         	        self.scs[rf_type].append(scs)
 	                self.ncs[rf_type].append(ncs)
@@ -565,7 +558,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         for rf_type in self.rf_types:
             assert isinstance(input_currents[rf_type], list)
             for i, (lgn_cell, input_current, scs, ncs) in enumerate(
-                                                            zip(self.sheets[rf_type].pop,
+                                                            zip(self.pops[rf_type],
                                                                 input_currents[rf_type],
                                                                 self.scs[rf_type],
                                                                 self.ncs[rf_type])):
@@ -626,9 +619,9 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         input_cells = {}
         for rf_type in self.rf_types:
             input_cells[rf_type] = []
-            for i in numpy.nonzero(self.sheets[rf_type].pop._mask_local)[0]:
-                cell = CellWithReceptiveField(self.sheets[rf_type].pop.positions[0][i],
-                                              self.sheets[rf_type].pop.positions[1][i],
+            for i in numpy.nonzero(self.pops[rf_type]._mask_local)[0]:
+                cell = CellWithReceptiveField(self.pops[rf_type].positions[0][i],
+                                              self.pops[rf_type].positions[1][i],
                                               self.rf[rf_type],
                                               self.parameters.gain_control,visual_space)
                 cell.initialize(visual_space.background_luminance, duration)
@@ -636,7 +629,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         
         for rf_type in self.rf_types:
                 for i, (lgn_cell, scs, ncs, rf) in enumerate(
-                                                  zip(self.sheets[rf_type].pop,
+                                                  zip(self.pops[rf_type],
                                                       self.scs[rf_type],
                                                       self.ncs[rf_type],input_cells[rf_type])):
                     
@@ -672,10 +665,9 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         #y_values = numpy.linspace(-effective_visual_field_height/2.0, effective_visual_field_height/2.0, self.shape[1])
         for rf_type in self.rf_types:
             input_cells[rf_type] = []
-            for i in numpy.nonzero(self.sheets[rf_type].pop._mask_local)[0]:
-            #for i in xrange(0,len(self.sheets[rf_type].pop.positions[0])):
-                cell = CellWithReceptiveField(self.sheets[rf_type].pop.positions[0][i],
-                                              self.sheets[rf_type].pop.positions[1][i],
+            for i in numpy.nonzero(self.pops[rf_type]._mask_local)[0]:
+                cell = CellWithReceptiveField(self.pops[rf_type].positions[0][i],
+                                              self.pops[rf_type].positions[1][i],
                                               self.rf[rf_type],
                                               self.parameters.gain_control, visual_space)
                 cell.initialize(visual_space.background_luminance, duration)
@@ -707,24 +699,74 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
 
 
 
+class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
+    """
+    Retina/LGN model with spatiotemporal receptive field.
+    
+    Parameters
+    ----------    
+    retino_thalamic_weight : float (uS)
+                             Peak conductance of retino-thalamic synapse
 
+    magnification_factor : float, (mm/deg)
+                           Tissue space subtended per degree
 
+    LGN_cell_params : dict, (ParameterSet)
+                      Set of parameters to define the LGN VisualCorticalUniformSheet
 
+    """
 
-# class SpatioTemporalFilterGainControl( SpatioTemporalFilterRetinaLGN ):
+    required_parameters = ParameterSet({
+        'retino_thalamic_weight': float,
+        'magnification_factor' : float,
+        'LGN_cell_params' : ParameterSet,
+    })
 
-#     def __init__(self, x, y, receptive_field, gain_control, visual_space):
-#         super(SpatioTemporalFilterGainControl).__init__(self, x, y, receptive_field, gain_control, visual_space)
+    def init_mozaik_sheets(self, model):
+        sim = self.model.sim
+        method = sim.OneToOneConnector( safe=True )
+        for rf_type in self.rf_types:
+            # LGN
+            p = VisualCorticalUniformSheet(
+                    model,
+                    ParameterSet({
+                        'sx': self.parameters.size[0]*self.parameters.magnification_factor,
+                        'sy': self.parameters.size[1]*self.parameters.magnification_factor,
+                        'density': self.parameters.density/(self.parameters.magnification_factor**2/1000**2),
+                        'magnification_factor' : self.parameters.magnification_factor,
+                        'cell': self.parameters.LGN_cell_params.cell,
+                        'name': rf_type,
+                        'artificial_stimulators' : {},
+                        'recorders' : self.parameters.recorders,
+                        'recording_interval'  :  self.parameters.recording_interval,
+                        'mpi_safe': False
+                    })
+                )
+            self.mozaik_sheets[rf_type] = p
 
-#         # initialize the distance matrix
+            # RETINA
+            # create a population of RGC the same size of LGN
+            self.pops[rf_type] = sim.Population(
+                size = p.pop.size, 
+                cellclass = getattr(sim, self.parameters.cell.model),
+                cellparams = self.parameters.cell.params, 
+                structure = p.pop.structure,
+                initial_values = self.parameters.cell.initial_values,
+                label = "Retina_"+rf_type
+            )
 
+            # the new pyNN population for RGC gets the positions from p    
+            self.pops[rf_type].positions = p.pop.positions
+            # for i in range(p.pop.size):
+            #     self.pops[rf_type][i].position = p[i].position
 
-#     def _calculate_input_currents(self, visual_space, duration):
-            
-#         (input_currents, retinal_input) = super(SpatioTemporalFilterGainControl)._calculate_input_currents(self, visual_space, duration)
-
-#         # modify input currents with Carandini formula
-#         # for rf_type in self.rf_types:
-#         #     input_currents[rf_type] = [ cell.response_current() for cell in input_cells[rf_type] ]
-
-#         return (input_currents, retinal_input)
+            # one to one connector from self.pops[rf_type] to p.pop
+            proj = sim.Projection(
+                p.pop,
+                self.pops[rf_type],
+                method,
+                synapse_type = sim.StaticSynapse(weight=self.parameters.retino_thalamic_weight, delay=1), # Lindstrom1982, FunkeEysel1998, RogalaWaleszczyLeskiWrobelWojcik2013
+                label = rf_type,
+                space = space.Space(axes='xy'),
+                receptor_type = 'excitatory'
+            )
