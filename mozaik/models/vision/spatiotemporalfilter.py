@@ -734,7 +734,7 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
                         'sy': self.parameters.size[1]*self.parameters.magnification_factor,
                         'density': self.parameters.density/(self.parameters.magnification_factor**2/1000**2),
                         'magnification_factor' : self.parameters.magnification_factor,
-                        'cell': self.parameters.LGN_cell_params.cell,
+                        'cell': self.parameters.LGN_cell_params,
                         'name': rf_type,
                         'artificial_stimulators' : {},
                         'recorders' : self.parameters.recorders,
@@ -755,17 +755,19 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
                 label = "Retina_"+rf_type
             )
 
-            # the new pyNN population for RGC gets the positions from p    
+            # the new pyNN population for RGC gets the positions from p
+            # print "BEFORE:", self.pops[rf_type].positions
             self.pops[rf_type].positions = p.pop.positions
-            # for i in range(p.pop.size):
-            #     self.pops[rf_type][i].position = p[i].position
+            # print "ret:",self.pops[rf_type].positions
+            # print "lgn:",p.pop.positions
 
             # one to one connector from self.pops[rf_type] to p.pop
-            proj = sim.Projection(
-                p.pop,
+            sim.Projection(
                 self.pops[rf_type],
+                p.pop,
                 method,
                 synapse_type = sim.StaticSynapse(weight=self.parameters.retino_thalamic_weight, delay=1), # Lindstrom1982, FunkeEysel1998, RogalaWaleszczyLeskiWrobelWojcik2013
+                # synapse_type = sim.TsodyksMarkramSynapse(weight=self.parameters.retino_thalamic_weight, delay=1, U=0.04, tau_rec=30.0),
                 label = rf_type,
                 space = space.Space(axes='xy'),
                 receptor_type = 'excitatory'
