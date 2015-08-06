@@ -375,7 +375,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         }),
     })
 
-    def init_mozaik_sheets(self, model):
+    def init_sheets(self, model):
         for rf_type in self.rf_types:
             p = RetinalUniformSheet(model,
                                     ParameterSet({'sx': self.parameters.size[0],
@@ -387,13 +387,13 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                                                   'recorders' : self.parameters.recorders,
                                                   'recording_interval'  :  self.parameters.recording_interval,
                                                   'mpi_safe': False}))
-            self.mozaik_sheets[rf_type] = p
+            self.sheets[rf_type] = p
             self.pops[rf_type] = p.pop
 
     def __init__(self, model, parameters):
         SensoryInputComponent.__init__(self, model, parameters)
         self.shape = (self.parameters.density,self.parameters.density)
-        self.mozaik_sheets = {}
+        self.sheets = {}
         self._built = False
         self.rf_types = ('X_ON', 'X_OFF')
         sim = self.model.sim
@@ -405,7 +405,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         self.ncs = {}
         self.ncs_rng = {}
         
-        self.init_mozaik_sheets(model)
+        self.init_sheets(model)
 
         for rf_type in self.rf_types:
             self.scs[rf_type] = []
@@ -696,9 +696,6 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
 
         return (input_currents, retinal_input)
 
-
-
-
 class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
     """
     Retina/LGN model with spatiotemporal receptive field.
@@ -722,7 +719,7 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
         'LGN_cell_params' : ParameterSet,
     })
 
-    def init_mozaik_sheets(self, model):
+    def init_sheets(self, model):
         sim = self.model.sim
         method = sim.OneToOneConnector( safe=True )
         for rf_type in self.rf_types:
@@ -742,7 +739,7 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
                         'mpi_safe': False
                     })
                 )
-            self.mozaik_sheets[rf_type] = p
+            self.sheets[rf_type] = p
 
             # RETINA
             # create a population of RGC the same size of LGN
