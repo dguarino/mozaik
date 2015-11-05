@@ -280,7 +280,7 @@ class CellWithReceptiveField(object):
         if self.gain_control.non_linear_gain != None:
             # Non-linear terms for luminance and contrast gain
             k = numpy.squeeze(numpy.mean(numpy.squeeze(numpy.mean(numpy.abs(self.receptive_field.kernel),axis=0)),axis=0))
-            std = numpy.convolve(self.std,k/numpy.sqrt(numpy.power(k,2).sum()),mode='same')
+            std = numpy.convolve(self.std, k/numpy.sqrt(numpy.power(k,2).sum()), mode='same')
             c = numpy.sum(self.receptive_field.kernel.flatten())*self.mean
             L = self.receptive_field.kernel_duration
             for i in range(L):
@@ -289,10 +289,11 @@ class CellWithReceptiveField(object):
                 c[-(i+1)] += (self.background_luminance - numpy.mean(self.mean[-L:])) * self.receptive_field.kernel[:, :,0:L-i].sum()
             ta = self.gain_control.gain * (self.response-c) / (self.gain_control.non_linear_gain.contrast_scaler*std+1.0)  
             tb = self.gain_control.non_linear_gain.luminance_gain * c / (self.gain_control.non_linear_gain.luminance_scaler*self.mean+1.0)
-            response = (ta+tb)[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end                             
+            response = (ta+tb)[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end   
         else:
             # Linear gain
             response = self.gain_control.gain * self.response[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end
+        # print "response", response                          
         # time point resolution
         time_points = self.receptive_field.temporal_resolution * numpy.arange(0, len(response))
         return {'times': time_points, 'amplitudes': response}
@@ -369,10 +370,16 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 'contrast_scaler' : float,
             })
         },
-        'noise': ParameterSet({
-            'mean': float,
-            'stdev': float,  # nA
-        }),
+        'noise' : {
+            'X_ON': ParameterSet({
+                'mean': float,
+                'stdev': float,  # nA
+            }),
+            'X_OFF': ParameterSet({
+                'mean': float,
+                'stdev': float,  # nA
+            }),
+        },
     })
 
     def init_sheets(self, model):
@@ -416,16 +423,16 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 scs = sim.StepCurrentSource(times=[0.0], amplitudes=[0.0])
 
                 if not self.parameters.mpi_reproducible_noise:
-                    ncs = sim.NoisyCurrentSource(**self.parameters.noise)
+                    ncs = sim.NoisyCurrentSource(**self.parameters.noise[rf_type])
                 else:
                     ncs = sim.StepCurrentSource(times=[0.0], amplitudes=[0.0])
         
-		if self.pops[rf_type]._mask_local[i]:
-			self.ncs_rng[rf_type].append(numpy.random.RandomState(seed=seeds[i]))
-        	        self.scs[rf_type].append(scs)
-	                self.ncs[rf_type].append(ncs)
-                lgn_cell.inject(scs)
-                lgn_cell.inject(ncs)
+                if self.pops[rf_type]._mask_local[i]:
+                    self.ncs_rng[rf_type].append(numpy.random.RandomState(seed=seeds[i]))
+                    self.scs[rf_type].append(scs)
+                    self.ncs[rf_type].append(ncs)
+                    lgn_cell.inject(scs)
+                    lgn_cell.inject(ncs)
                 
         
         P_rf = self.parameters.receptive_field
@@ -444,6 +451,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         for rf in rf_ON, rf_OFF:
             rf.quantize(dx, dy, dt)
         self.rf = {'X_ON': rf_ON, 'X_OFF': rf_OFF}                
+
 
     def get_cache(self, stimulus_id):
         """
@@ -479,6 +487,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
             else:
                 return None
 
+
     def write_cache(self, stimulus_id, input_currents, retinal_input):
         """
         Stores input currents and the retinal input corresponding to a given stimulus.
@@ -489,7 +498,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                         The stimulus id of the stimulus for which we will store the input currents
                 
                 input_currents : list
-                               List containing the input currents that will be injected to the LGN neurons due to the neuron's RFs. One per each LGN neuron.
+                               List containing the input currents that will be injected to the RGC neurons due to the neuron's RFs. One per each RGC neuron.
                 
                 retinal_input : list(ndarray)
                               List of 2D arrays containing the frames of luminances that were presented to the retina for the stimulus `stimulus_id`.
@@ -512,10 +521,10 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
             f.close()
             f1.close()
 
+
     def process_input(self, visual_space, stimulus, duration=None, offset=0):
         """
-        Present a visual stimulus to the model, and create the LGN output
-        (relay) neurons.
+        Present a visual stimulus to the model, and create the RGC neurons.
         
         Parameters
         ----------
@@ -568,8 +577,8 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 scs.set_parameters(times=t, amplitudes=a)
                 if self.parameters.mpi_reproducible_noise:
                     t = numpy.arange(0, duration, ts) + offset
-                    amplitudes = (self.parameters.noise.mean
-                                   + self.parameters.noise.stdev
+                    amplitudes = (self.parameters.noise[rf_type].mean
+                                   + self.parameters.noise[rf_type].stdev
                                        * self.ncs_rng[rf_type][i].randn(len(t)))
                     ncs.set_parameters(times=t, amplitudes=amplitudes)
         # for debugging/testing, doesn't work with MPI !!!!!!!!!!!!
@@ -583,11 +592,12 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 # we only keep the current values at the start of each frame
         #        input_current_array[i,j, :] = input_currents['X_ON'][k]['amplitudes'][::update_factor]
         #        k += 1
-
+        # print retinal_input
         # if record() has already been called, setup the recording now
         self._built = True
         self.write_cache(st, input_currents, retinal_input)
         return retinal_input
+
 
     def provide_null_input(self, visual_space, duration=None, offset=0):
         """
@@ -642,8 +652,8 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                     if self.parameters.mpi_reproducible_noise:
                         t = numpy.arange(0, duration, ts) + offset
 
-                        amplitudes = (self.parameters.noise.mean
-                                        + self.parameters.noise.stdev
+                        amplitudes = (self.parameters.noise[rf_type].mean
+                                        + self.parameters.noise[rf_type].stdev
                                            * self.ncs_rng[rf_type][i].randn(len(t)))
                         ncs.set_parameters(times=t, amplitudes=amplitudes)
 
@@ -669,7 +679,8 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 cell = CellWithReceptiveField(self.pops[rf_type].positions[0][i],
                                               self.pops[rf_type].positions[1][i],
                                               self.rf[rf_type],
-                                              self.parameters.gain_control, visual_space)
+                                              self.parameters.gain_control, 
+                                              visual_space)
                 cell.initialize(visual_space.background_luminance, duration)
                 input_cells[rf_type].append(cell)
 
@@ -693,8 +704,9 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         input_currents = {}
         for rf_type in self.rf_types:
             input_currents[rf_type] = [ cell.response_current() for cell in input_cells[rf_type] ]
-
         return (input_currents, retinal_input)
+
+
 
 class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
     """
@@ -740,6 +752,7 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
                     })
                 )
             self.sheets[rf_type] = p
+            # print p.pop
 
             # RETINA
             # create a population of RGC the same size of LGN
@@ -764,7 +777,6 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
                 p.pop,
                 method,
                 synapse_type = sim.StaticSynapse(weight=self.parameters.retino_thalamic_weight, delay=1), # Lindstrom1982, FunkeEysel1998, RogalaWaleszczyLeskiWrobelWojcik2013
-                # synapse_type = sim.TsodyksMarkramSynapse(weight=self.parameters.retino_thalamic_weight, delay=1, U=0.04, tau_rec=30.0),
                 label = rf_type,
                 space = space.Space(axes='xy'),
                 receptor_type = 'excitatory'
