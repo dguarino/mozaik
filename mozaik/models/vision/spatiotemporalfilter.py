@@ -236,8 +236,6 @@ class CellWithReceptiveField(object):
         for i in range(L):
             self.response[i] += background_luminance * self.receptive_field.kernel[:, :, i+1:L].sum()
         
-        for i in range(L):
-            self.response[-(i+1)] += background_luminance * self.receptive_field.kernel[:, :, 0:L-i].sum()
         self.i = 0
         
     def view(self):
@@ -277,19 +275,65 @@ class CellWithReceptiveField(object):
         kernel values are dimensionless) by the 'gain', to produce a current in
         nA. Returns a dictionary containing 'times' and 'amplitudes'.
         """
+        # Non-linear terms for luminance and contrast gain
         if self.gain_control.non_linear_gain != None:
-            # Non-linear terms for luminance and contrast gain
+            # Luminance response of the kernel: absolute rf spatial kernel mean
             k = numpy.squeeze(numpy.mean(numpy.squeeze(numpy.mean(numpy.abs(self.receptive_field.kernel),axis=0)),axis=0))
+            # Contrast of the stimulus: convolution of stimulus std and normalized abs spatial kernel mean
             std = numpy.convolve(self.std, k/numpy.sqrt(numpy.power(k,2).sum()), mode='same')
-            c = numpy.sum(self.receptive_field.kernel.flatten())*self.mean
+            # rf spatial kernel mean
+            k1 = numpy.squeeze(numpy.mean(numpy.squeeze(numpy.mean(self.receptive_field.kernel,axis=0)),axis=0))
+            #################################
+            # import matplotlib.pyplot as plt
+            # plt.figure()
+            # plt.plot(k1)
+            # plt.savefig("kernel.png")
+            # plt.figure()
+            # plt.plot(self.mean)
+            # plt.savefig("mean.png")
+            #################################
+            # convolution of stimulus mean and normalized abs spatial kernel mean            
             L = self.receptive_field.kernel_duration
-            for i in range(L):
-                c[i] += (self.background_luminance - numpy.mean(self.mean[:L])) * self.receptive_field.kernel[:, :, i+1:L].sum()  
-            for i in range(L):
-                c[-(i+1)] += (self.background_luminance - numpy.mean(self.mean[-L:])) * self.receptive_field.kernel[:, :,0:L-i].sum()
+            
+            z = numpy.array([self.background_luminance for i in xrange(0,L+1)])
+            c = numpy.convolve(numpy.concatenate((z,self.mean),axis=0),k1,mode='full')*numpy.shape(self.receptive_field.kernel)[0]*numpy.shape(self.receptive_field.kernel)[1]
+            c = c[L+1:-L+1]
+
+            #################################
+            # import matplotlib.pyplot as plt
+            # plt.figure()
+            # plt.plot(k1)
+            # plt.savefig("c.png")
+            #################################
+            # for i in range(L):
+            #    c[i] += (self.background_luminance - numpy.mean(self.mean[:L])) * self.receptive_field.kernel[:, :, i+1:L].sum()  
+            # for i in range(L):
+            #    c[-(i+1)] += (self.background_luminance - numpy.mean(self.mean[-L:])) * self.receptive_field.kernel[:, :,0:L-i].sum()
             ta = self.gain_control.gain * (self.response-c) / (self.gain_control.non_linear_gain.contrast_scaler*std+1.0)  
+            ####################
+            # import matplotlib.pyplot as plt
+            # plt.figure()
+            # plt.plot(ta)
+            # plt.savefig("ta.png")
+
+            # plt.figure()
+            # plt.hold('on')
+            # plt.plot(self.response)
+            # plt.plot(c)
+            # plt.savefig("respons_and_c.png")
+
+            # plt.figure()
+            # plt.plot(self.response-c)
+            # plt.savefig("response-c.png")
+            ####################
             tb = self.gain_control.non_linear_gain.luminance_gain * c / (self.gain_control.non_linear_gain.luminance_scaler*self.mean+1.0)
             response = (ta+tb)[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end   
+            #################################
+            # plt.figure()
+            # plt.plot(response)
+            # plt.savefig("response-after.png")
+            #################################
+            
         else:
             # Linear gain
             response = self.gain_control.gain * self.response[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end
@@ -563,7 +607,6 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
             (input_currents, retinal_input) = cached
 
         ts = self.model.sim.get_time_step()
-
         for rf_type in self.rf_types:
             assert isinstance(input_currents[rf_type], list)
             for i, (lgn_cell, input_current, scs, ncs) in enumerate(
@@ -574,6 +617,13 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 assert isinstance(input_current, dict)
                 t = input_current['times'] + offset
                 a = self.parameters.linear_scaler * input_current['amplitudes']
+                ####################
+                # import matplotlib.pyplot as plt
+                # plt.figure()
+                # plt.plot(a)
+                # plt.title(str(stimulus))
+                # plt.savefig("injection_"+rf_type+"_"+str(stimulus.contrast)+".png")
+                ####################
                 scs.set_parameters(times=t, amplitudes=a)
                 if self.parameters.mpi_reproducible_noise:
                     t = numpy.arange(0, duration, ts) + offset
