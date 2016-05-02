@@ -57,8 +57,8 @@ class LinePlot(Parameterized):
             subplotspec : subplotspec
                         Is the subplotspec into which the whole lineplot is to be plotted.
             """
-            if not self.length:
-                raise ValueError('Length not specified')
+            if self.length == 0 or self.length == None:
+                raise ValueError('Lineplot cannot create zero sub-plots')
                 
 
             l = numpy.min([self.max_length, self.length])

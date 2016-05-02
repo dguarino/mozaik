@@ -58,7 +58,7 @@ class DistanceDependentModularConnectorFunction(ModularConnectorFunction):
         raise NotImplemented
     
     def evaluate(self,index):
-        return self.distance_dependent_function(self.target.dvf_2_dcs(numpy.sqrt(
+        return self.distance_dependent_function(self.source.dvf_2_dcs(numpy.sqrt(
                                 numpy.power(self.source.pop.positions[0,:]-self.target.pop.positions[0,index],2) + numpy.power(self.source.pop.positions[1,:]-self.target.pop.positions[1,index],2)
                     )))
         
@@ -66,7 +66,7 @@ class DistanceDependentModularConnectorFunction(ModularConnectorFunction):
 
 class GaussianDecayModularConnectorFunction(DistanceDependentModularConnectorFunction):
     """
-    Distance dependent arborization with gaussian fall-off of the connections: k * exp(-0.5*(distance/a)*2) / (a*sqrt(2*pi))
+    Distance dependent arborization with gaussian fall-off of the connections: k * exp(-0.5*(distance/a)^2) / (a*sqrt(2*pi))
     where a = arborization_constant, k = arborization_scaler
     """
     required_parameters = ParameterSet({

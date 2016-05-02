@@ -987,27 +987,25 @@ class ConnectionPlot(StandardStyle):
         self.parameters["colorbar_label"] = None
         self.parameters["line"] = False
 
-    def plot(self):
+    def plot(self):        
         self.x_lim = [numpy.min(self.pos_x),numpy.max(self.pos_x)]
         self.y_lim = [numpy.min(self.pos_y),numpy.max(self.pos_y)]
         if len(numpy.nonzero(self.weights)[0]) == 0:
             return 
         
-        
         self.pos_x = self.pos_x[numpy.nonzero(self.weights)[0]]
         self.pos_y = self.pos_y[numpy.nonzero(self.weights)[0]]
 
-        
         if self.colors != None:
             self.colors = numpy.array(self.colors)
             self.colors = self.colors[numpy.nonzero(self.weights)[0]] 
         self.weights = self.weights[numpy.nonzero(self.weights)[0]]
 
         if self.colors == None:
-            if numpy.max(self.weights) > 0:
+            if abs(numpy.max(self.weights)) > 0:
                 s = self.weights / numpy.max(self.weights) * 200
             else:
-                s = 0
+                s = 2
             ax = self.axis.scatter(self.pos_x, self.pos_y, c='black', s=s, lw=0)
         else:
             if self.period == None:
@@ -1016,7 +1014,6 @@ class ConnectionPlot(StandardStyle):
             else:
                 vmax = self.period
                 vmin = 0
-                
             ax = self.axis.scatter(self.pos_x, self.pos_y, c=numpy.array(self.colors),edgecolors=None,
                                    s=self.weights/numpy.max(self.weights)*100,
                                    lw=1, cmap=self.cmp,

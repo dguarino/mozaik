@@ -1206,6 +1206,7 @@ class ConnectivityPlot(Plotting):
         self.connections = []
 
         _connections = datastore.get_analysis_result(identifier='Connections')
+        
         self.pnvs = None
         if pnv_dsv != None:
             self.pnvs = []
@@ -1226,6 +1227,8 @@ class ConnectivityPlot(Plotting):
                 self.connected_neuron_position.append(
                             (z[0][idx],
                              z[1][idx]))
+                # print "source neuron",self.parameters.neuron," X:", z[0][idx]
+                # print "source neuron",self.parameters.neuron," Y:", z[1][idx]
                 self.connections.append(conn)
             elif (self.parameters.reversed and conn.target_name == self.parameters.sheet_name):
                 # add incomming projections from sheet_name
@@ -1236,6 +1239,8 @@ class ConnectivityPlot(Plotting):
                 self.connected_neuron_position.append(
                             (z[0][idx],
                              z[1][idx]))
+                # print "target neuron",self.parameters.neuron," X:", z[0][idx]
+                # print "target neuron",self.parameters.neuron," Y:", z[1][idx]
                 self.connections.append(conn)
 
         self.length=len(self.connections)
@@ -1310,16 +1315,16 @@ class ConnectivityPlot(Plotting):
                 plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w,colors=pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix)),period=pnv.period),gs,params)]
             else:
                 params["line"] = True
-                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, numpy.min(sx)*1.2, numpy.min(sy)*1.2, w,colors=pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix)),period=pnv.period),gs,params)]
+                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w,colors=pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix)),period=pnv.period),gs,params)]
         else:
-            params["title"] = 'Weights: '+ self.connections[idx].proj_name
+            params["title"] = 'Weights: '+ self.connections[idx].proj_name +  ' ' + str(len(sx))
             
             if self.connections[idx].source_name == self.connections[idx].target_name:
                 params["line"] = False
                 plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w),gs,params)]
             else:
                 params["line"] = True
-                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, numpy.min(sx)*1.2, numpy.min(sy)*1.2,w),gs,params)]
+                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w),gs,params)]
 
 
         # Plot the delays
@@ -1330,14 +1335,15 @@ class ConnectivityPlot(Plotting):
         if idx == self.length-1:
            params["colorbar"] = True
         
+        
         params["title"]  = 'Delays: '+ self.connections[idx].proj_name
         if self.connections[idx].source_name == self.connections[idx].target_name:
-            params["line"] = False
-            plots.append(("DelaysPlot",ConnectionPlot(sx, sy, tx, ty, (numpy.zeros(w.shape)+0.3)*(w!=0),colors=d),gs,params))
+                params["line"] = False
+                plots.append(("DelaysPlot",ConnectionPlot(sx, sy, tx, ty, (numpy.zeros(w.shape)+0.3)*(w!=0),colors=d),gs,params))
         else:
-            params["line"] = True
-            plots.append(("DelaysPlot",ConnectionPlot(sx, sy, numpy.min(sx)*1.2, numpy.min(sy)*1.2,(numpy.zeros(w.shape)+0.3)*(w!=0),colors=d),gs,params))
-        
+                params["line"] = True
+                plots.append(("DelaysPlot",ConnectionPlot(sx, sy, numpy.min(sx)*1.2, numpy.min(sy)*1.2,(numpy.zeros(w.shape)+0.3)*(w!=0),colors=d),gs,params))
+            
         return plots
         
 

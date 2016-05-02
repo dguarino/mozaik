@@ -302,7 +302,7 @@ class CellWithReceptiveField(object):
             #################################
             # import matplotlib.pyplot as plt
             # plt.figure()
-            # plt.plot(k1)
+            # plt.plot(c)
             # plt.savefig("c.png")
             #################################
             # for i in range(L):
@@ -311,7 +311,7 @@ class CellWithReceptiveField(object):
             #    c[-(i+1)] += (self.background_luminance - numpy.mean(self.mean[-L:])) * self.receptive_field.kernel[:, :,0:L-i].sum()
             ta = self.gain_control.gain * (self.response-c) / (self.gain_control.non_linear_gain.contrast_scaler*std+1.0)  
             ####################
-            # import matplotlib.pyplot as plt
+            #import matplotlib.pyplot as plt
             # plt.figure()
             # plt.plot(ta)
             # plt.savefig("ta.png")
@@ -327,7 +327,13 @@ class CellWithReceptiveField(object):
             # plt.savefig("response-c.png")
             ####################
             tb = self.gain_control.non_linear_gain.luminance_gain * c / (self.gain_control.non_linear_gain.luminance_scaler*self.mean+1.0)
+            
+            # plt.figure()
+            # plt.plot(tb)
+            # plt.savefig("tb.png")
+            
             response = (ta+tb)[:-self.receptive_field.kernel_duration]  # remove the extra padding at the end   
+
             #################################
             # plt.figure()
             # plt.plot(response)
@@ -622,7 +628,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 # plt.figure()
                 # plt.plot(a)
                 # plt.title(str(stimulus))
-                # plt.savefig("injection_"+rf_type+"_"+str(stimulus.contrast)+".png")
+                # plt.savefig("injection_"+rf_type+"_"+str(stimulus.temporal_frequency)+".png")
                 ####################
                 scs.set_parameters(times=t, amplitudes=a)
                 if self.parameters.mpi_reproducible_noise:

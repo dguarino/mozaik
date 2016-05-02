@@ -92,9 +92,9 @@ class ModularConnector(Connector):
         This function calculates the combined weights from the ModularConnectorFunction in weight_functions
         """
         evaled = {}
-       
         for k in self.weight_function_names:
             evaled[k] = self.weight_functions[k].evaluate(i)
+            
         return numpy.zeros((self.fan_source.pop.size,)) + eval(self.parameters.weight_expression,globals(),evaled)
         
     def _obtain_delays(self,i):
@@ -133,7 +133,6 @@ class ModularConnector(Connector):
             connections_list = zip(fan_source_indexes, fan_target_indexes, weights, delays)
         else:
             connections_list = zip(fan_target_indexes, fan_source_indexes, weights, delays)
-
         self.method = self.sim.FromListConnector(connections_list)
         if len(connections_list) > 0:
             self.proj = self.sim.Projection(
