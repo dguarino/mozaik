@@ -36,7 +36,7 @@ class LocalSequentialBackend(object):
         self.num_threads = num_threads
 
 
-    def execute_job(self,run_script,simulator_name,parameters_url,parameters,simulation_run_name):
+    def execute_job(self, run_script, simulator_name, parameters_url, parameters, simulation_run_name):
         """
         This function recevies the list of parameters to modify and their values, and has to 
         execute the corresponding mozaik simulation.
@@ -284,3 +284,34 @@ def parameter_search_run_script_distributed_slurm(simulation_name,master_results
         print data
         p.stdin.close()
 
+    
+
+def parameter_search_run_script( simulation_name, master_results_dir, run_script, core_number ):
+    """
+    Executes *run_script*, one per each parameter combination of an existing parameter search run.
+    Each execution receives as the first commandline argument the directory in which the results for the given
+    parameter combination were stored.
+    
+    Parameters
+    ----------
+    simulation_name : str
+                    The name of the simulation.
+    master_results_dir : str
+                    The directory where the parameter search results are stored.
+    run_script : str
+                    The name of the script to be run. The directory name of the given parameter combination datastore will be passed to it as the first command line argument.
+    core_number : int
+                How many cores to reserve per process.
+    """
+    f = open(master_results_dir+'/parameter_combinations','rb')
+    combinations = pickle.load(f)
+    f.close()
+    
+    # first check whether all parameter combinations contain the same parameter names
+    assert len(set([tuple(set(comb.keys())) for comb in combinations])) == 1 , "The parameter search didn't occur over a fixed set of parameters"
+
+    from subprocess import Popen, PIPE, STDOUT
+    for i,combination in enumerate(combinations):
+        rdn = master_results_dir+'/'+result_directory_name('ParameterSearch',simulation_name,combination)    
+        #print rdn
+        subprocess.call(' '.join(["python", run_script, "'"+rdn+"'"]  +['>']  + ["'"+rdn +'/OUTFILE_analysis'+str(time.time()) + "'"]), shell=True)

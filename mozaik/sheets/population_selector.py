@@ -90,7 +90,7 @@ class RCRandomPercentage(PopulationSelector):
           mozaik.rng.shuffle(z)
           return z[:int(len(z)*self.parameters.percentage/100)]
 
-          
+
 class RCGrid(PopulationSelector):
       """
       This PopulationSelector assumes a grid of points ('electrodes') and includes the closest neuron to each point to the selected list.
@@ -125,10 +125,46 @@ class RCGrid(PopulationSelector):
           z = self.sheet.pop.all_cells.astype(int)
           for x in self.parameters.offset_x + numpy.arange(0,self.parameters.size,self.parameters.spacing) - self.parameters.size/2.0:
               for y in self.parameters.offset_y + numpy.arange(0,self.parameters.size,self.parameters.spacing) - self.parameters.size/2.0:
-                  xx,yy = self.sheet.cs_2_vf(x,y)
-                  picked.append(z[numpy.argmin(numpy.power(self.sheet.pop.positions[0] - xx,2) +  numpy.power(self.sheet.pop.positions[1] - yy,2))])
+                  xx,yy = self.sheet.cs_2_vf(x,y) # because positions are in visual space coordinates
+                  picked.append(z[numpy.argmin(numpy.power(self.sheet.pop.positions[0] - xx,2) + numpy.power(self.sheet.pop.positions[1] - yy,2))])
           
           return list(set(picked))
+
+
+class RCSpace(PopulationSelector):
+      """
+      This PopulationSelector selects all neurons in the sheet within a given size.
+      
+      Other parameters
+      ----------------
+
+      radius : float (degrees of visual field)
+
+      offset_x : float (the x axis offset from the center of the sheet, micro meters)
+      
+      offset_y : float (the y axis offset from the center of the sheet, micro meters)
+
+      """
+      
+      required_parameters = ParameterSet({
+        'radius' : float, # the radius of cortical space to select (degrees of visual field)
+        'offset_x' : float, # the x axis offset from the center of the sheet (micro meters)
+        'offset_y' : float, # the y axis offset from the center of the sheet (micro meters)
+      })  
+      
+      def generate_idd_list_of_neurons(self):
+          picked = []
+          z = self.sheet.pop.all_cells.astype(int) # PyNN population ids
+          o = numpy.array( (self.parameters.offset_x, self.parameters.offset_y, 0.0) )
+          for idd in z:
+            i = self.sheet.pop.id_to_index(idd)
+            a = numpy.array( (self.sheet.pop.positions[0][i], self.sheet.pop.positions[1][i], 0.0) )
+            if numpy.linalg.norm(a - o) < self.parameters.radius:
+              picked.append(idd)
+          print "population_selector : RCSpace : Total IDs:",len(z)
+          print "population_selector : RCSpace : Chosen IDs:",len(picked)
+          return list(set(picked))
+
 
 class SimilarAnnotationSelector(PopulationSelector):
       """

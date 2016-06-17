@@ -15,6 +15,8 @@ from NeuroTools import stgen
 from mozaik import load_component
 from pyNN.parameters import Sequence
 
+logger = mozaik.getMozaikLogger()
+
 class DirectStimulator(ParametrizedObject):
       """
       The API for direct stimulation.
@@ -295,12 +297,24 @@ class Depolarization(DirectStimulator):
         
         population_selector = load_component(self.parameters.population_selector.component)
         self.ids = population_selector(sheet,self.parameters.population_selector.params).generate_idd_list_of_neurons()
-        self.scs = self.sheet.sim.StepCurrentSource(times=[0.0], amplitudes=[0.0])
-        for cell in self.sheet.pop.all_cells:
-            cell.inject(self.scs)
+        self.scs = []
+
+        # for cell in self.sheet.pop.all_cells:
+        #     s = self.sheet.sim.StepCurrentSource(times=[0.0], amplitudes=[0.0])
+        #     self.scs.append( s )
+        #     cell.inject( s )
+
+        d = dict((j,i) for i,j in enumerate(self.sheet.pop.all_cells))
+        self.stimulated_cells = [d[i] for i in set(self.ids) & set(self.sheet.pop.local_cells)]
+        for i in self.stimulated_cells:
+          s = self.sheet.sim.StepCurrentSource(times=[0.0], amplitudes=[0.0])
+          self.scs.append( s )
+          self.sheet.pop.all_cells[i].inject( s )
+
 
     def prepare_stimulation(self,duration,offset):
-        self.scs.set_parameters(times=[offset+self.sheet.sim.state.dt*2], amplitudes=[self.parameters.current])
-        
+        for scs in self.scs:
+          scs.set_parameters(times=[offset+self.sheet.sim.state.dt*3,offset+duration], amplitudes=[self.parameters.current,0])
+          
     def inactivate(self,offset):
-        self.scs.set_parameters(times=[offset+self.sheet.sim.state.dt*2], amplitudes=[0.0])
+        pass

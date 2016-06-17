@@ -308,6 +308,128 @@ class MeasureSizeTuning(VisualExperiment):
         pass
 
 
+
+
+
+class MeasureSizeTuningWithInactivation(VisualExperiment):
+    """
+    Measure size tuning using expanding sinusoidal grating disks with a stimulation (excitation or inhibition depending on current polarity) to a sheet's region in sheet_list.
+    
+    Parameters
+    ----------
+    model : Model
+          The model on which to execute the experiment.
+
+    grating_duration : float
+                      The duration of single presentation of a grating.
+    
+    sheet_list : int
+               The list of sheets in which to do the stimulation
+
+    current_value : float (mA)
+                     The current to inject into neurons.
+                        
+    stimulation_configuration : ParameterSet
+                              The parameter set for direct stimulation specifing neurons to stimulate.
+                                 
+    num_sizes : int
+              Number of sizes to present.
+    
+    max_size : float (degrees of visual field)
+             Maximum size to present.
+    
+    orientation : float
+                The orientation (in radians) at which to measure the size tuning. (in future this will become automated)
+                
+    spatial_frequency : float
+                      Spatial frequency of the grating.
+                      
+    temporal_frequency : float
+                      Temporal frequency of the grating.
+    
+    contrasts : list(float) 
+              List of contrasts (expressed as % : 0-100%) at which to measure the orientation tuning.
+    
+    num_trials : int
+               Number of trials each each stimulus is shown.
+    
+    log_spacing : bool
+               Whether use logarithmic spaced sizes. By default False, meaning linear spacing 
+    
+    with_flat : bool
+               Whether use also flat luminance disks as stimuli. By default False 
+    """
+    
+    def __init__( self, 
+        model, 
+        sheet_list, 
+        injection_current, 
+        injection_configuration, 
+        num_sizes, 
+        max_size, 
+        orientation, 
+        spatial_frequency, 
+        temporal_frequency, 
+        contrasts, 
+        grating_duration, 
+        num_trials, 
+        log_spacing=False, 
+    ):
+        VisualExperiment.__init__(self, model)    
+        from mozaik.sheets.direct_stimulator import Depolarization
+        
+        d  = {}
+        for i,sheet in enumerate(sheet_list):
+            d[sheet] = [
+                Depolarization(
+                    model.sheets[sheet],
+                    ParameterSet({
+                        'population_selector' : injection_configuration,
+                        'current': injection_current,
+                    })
+                )
+            ]
+        
+        self.direct_stimulation = [] # init
+
+        # linear or logarithmic spaced sizes
+        sizes = numpy.linspace(0, max_size, num_sizes)                     
+        if log_spacing:
+            # base2 log of max_size
+            base2max = numpy.sqrt(max_size)
+            sizes = numpy.logspace(start=-3.0, stop=base2max, num=num_sizes, base=2.0)  
+
+        # stimuli creation        
+        for c in contrasts:
+            for s in sizes:
+                for k in xrange(0, num_trials):
+                    self.stimuli.append(
+                        topo.DriftingSinusoidalGratingDisk(
+                            frame_duration=7,
+                            size_x=model.visual_field.size_x,
+                            size_y=model.visual_field.size_y,
+                            location_x=0.0,
+                            location_y=0.0,
+                            background_luminance=self.background_luminance,
+                            contrast = c,
+                            duration=grating_duration,
+                            density=self.density,
+                            trial=k,
+                            orientation=orientation,
+                            radius=s,
+                            spatial_frequency=spatial_frequency,
+                            temporal_frequency=temporal_frequency
+                        )
+                    )
+                    # inhibition for each presentation
+                    self.direct_stimulation.append(d)
+
+        logger.info("experiment.vision : number of direct_stimulation from vision")
+        logger.info(str(len(self.direct_stimulation)))
+
+
+
+
 class MeasureContrastSensitivity(VisualExperiment):
     """
     Measure contrast sensitivity using sinusoidal grating disk.

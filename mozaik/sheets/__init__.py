@@ -288,7 +288,7 @@ class Sheet(BaseComponent):
        
         return s
 
-    def prepare_artificial_stimulation(self, duration, offset,additional_stimulators):
+    def prepare_artificial_stimulation(self, duration, offset, additional_stimulators):
         """
         Prepares the background noise and artificial stimulation for the population for the stimulus that is 
         about to be presented. 
