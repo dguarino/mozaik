@@ -717,6 +717,7 @@ class ScatterPlot(StandardStyle):
         self.parameters["mark_means"] = False
         self.parameters["identity_line"] = False
         self.parameters["colorbar_label"] = None
+        self.parameters["grid"] = None
 
     def plot(self):
         if not self.periodic and self.z !='b':
@@ -725,6 +726,7 @@ class ScatterPlot(StandardStyle):
         else:
             vmax = self.period
             vmin = 0
+
         ax = self.axis.scatter(self.x, self.y, c=self.z,
                                s=self.dot_size,
                                marker=self.marker,
@@ -733,6 +735,7 @@ class ScatterPlot(StandardStyle):
                                color='k',
                                vmin=vmin,
                                vmax=vmax)
+
         if self.equal_aspect_ratio:
             self.axis.set_aspect(aspect=1.0, adjustable='box')
         self.x_lim = (numpy.min(self.x),numpy.max(self.x))
@@ -753,6 +756,16 @@ class ScatterPlot(StandardStyle):
             cb = pylab.colorbar(ax, ticks=[vmin, vmax], use_gridspec=True)
             cb.set_label(self.colorbar_label)
             cb.set_ticklabels(["%.2g" % vmin, "%.2g" % vmax])
+
+        # dguarino
+        # from matplotlib.ticker import MultipleLocator
+        # spacing = 0.5 # This can be your user specified spacing. 
+        # minorLocator = MultipleLocator(spacing)
+        # self.axis.yaxis.set_minor_locator(minorLocator)
+        # self.axis.xaxis.set_minor_locator(minorLocator)
+        # # Set grid to use minor tick locations. 
+        # self.axis.grid(color='gray', linestyle='dashed', which = 'minor')
+        self.axis.grid(color='gray', linestyle='dashed')
 
 
 class StandardStyleLinePlot(StandardStyle):

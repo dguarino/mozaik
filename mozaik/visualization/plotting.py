@@ -230,7 +230,8 @@ class PlotTuningCurve(Plotting):
       'centered' : bool, # if True it will center each set of tuning curves on the parameter value with the larges mean response across the other parameter variations
       'mean' : bool, # if True it will plot the mean tuning curve over the neurons (in case centered=True it will first center the TCs before computing the mean)
       'pool' : bool, # if True it will not plot each different value_name found in datastore on a sepparete line of plots but pool them together.
-      'polar' : bool # if True polar coordinates will be used
+      'polar' : bool, # if True polar coordinates will be used
+      'percent': bool # if True response is expressed as percentage of max firing rate
     })
 
     def __init__(self, datastore, parameters, plot_file_name=None,fig_param=None,frame_duration=0):
@@ -262,11 +263,22 @@ class PlotTuningCurve(Plotting):
                              *sorted(
                                 zip(b,
                                     numpy.array(a))))
+
+                if self.parameters.percent:
+                    # print val
+                    # firing_max = numpy.mean( numpy.amax( val, axis=1 ) )
+                    firing_max = numpy.amax( val )
+                    # print firing_max
+                    val = val / firing_max * 100
+                    # print val
+
                 dic[k] = (par,numpy.array(val))
+
             self.tc_dict.append(dic)
+
             if self.parameters.centered:
-               self.max_mean_response_indexes.append(numpy.argmax(sum([a[1] for a in dic.values()]),axis=0))
-               # lets find the highest average value for the neuron
+                self.max_mean_response_indexes.append(numpy.argmax(sum([a[1] for a in dic.values()]),axis=0))
+                # lets find the highest average value for the neuron
         
         if self.parameters.pool:
            assert all([p[0].value_units == self.pnvs[0][0].value_units for p in self.pnvs]), "You asked to pool tuning curves across different value_names, but the datastore contains PerNeuronValue datastructures with different units"
