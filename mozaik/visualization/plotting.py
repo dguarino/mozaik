@@ -219,6 +219,9 @@ class PlotTuningCurve(Plotting):
     polar : bool
           If True it will plot the tuning curves in polar coordinates, not that the stimulus parameter through which the tuning curves are  plotted has to be periodic, and this period will be mapped on to the (0,360) degrees interval of the polar plot.
             
+    percent : bool
+          If True response is expressed as percentage of max firing rate
+
     Defines 'TuningCurve_' + value_name +  '.Plot0' ... 'TuningCurve_' + value_name +  '.Plotn'
     where n goes through number of neurons, and value_name creates one row for each value_name found in the different PerNeuron found
     """
@@ -231,7 +234,8 @@ class PlotTuningCurve(Plotting):
       'mean' : bool, # if True it will plot the mean tuning curve over the neurons (in case centered=True it will first center the TCs before computing the mean)
       'pool' : bool, # if True it will not plot each different value_name found in datastore on a sepparete line of plots but pool them together.
       'polar' : bool, # if True polar coordinates will be used
-      'percent': bool # if True response is expressed as percentage of max firing rate
+      'percent': bool, # if True response is expressed as percentage of max firing rate
+      # 'all': bool #
     })
 
     def __init__(self, datastore, parameters, plot_file_name=None,fig_param=None,frame_duration=0):
@@ -259,18 +263,15 @@ class PlotTuningCurve(Plotting):
             #sort the entries in dict according to the parameter parameter_name values 
             for k in  dic:
                 (b, a) = dic[k]
+                # logger.warning(str(k))
                 par, val = zip(
                              *sorted(
                                 zip(b,
                                     numpy.array(a))))
 
-                if self.parameters.percent:
-                    # print val
-                    # firing_max = numpy.mean( numpy.amax( val, axis=1 ) )
+                if self.parameters.percent: # DG
                     firing_max = numpy.amax( val )
-                    # print firing_max
                     val = val / firing_max * 100
-                    # print val
 
                 dic[k] = (par,numpy.array(val))
 
@@ -325,13 +326,12 @@ class PlotTuningCurve(Plotting):
                             vv = val[:,j]
                             p = par
                         v = v + vv
-                    val = v / len(self.parameters.neurons)
-                    par = p
+                    # val = v / len(self.parameters.neurons) # DG Reminder for errorbars
+                    # par = p
                 elif self.parameters.centered:
                     val,par = self.center_tc(val[:,idx],par,period,self.max_mean_response_indexes[i][idx])
                 else:
                     val = val[:,idx]
-                    
                     
                 if period != None:
                     par = list(par)
@@ -383,6 +383,8 @@ class PlotTuningCurve(Plotting):
               plots.append(("TuningCurve_Stacked",StandardStyleLinePlot(xs, ys),gs,params))
            else:
               plots.append(("TuningCurve_Stacked",StandardStyleLinePlot(xs, ys,subplot_kw=po),gs,params)) 
+              # if self.parameters.errorbars:
+              #   print "errorbars"
                 
         return plots
 
