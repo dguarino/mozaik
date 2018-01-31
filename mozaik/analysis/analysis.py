@@ -360,191 +360,6 @@ class TrialToTrialCrossCorrelationOfAnalogSignalList(Analysis):
 
 
 
-
-class TrialAveragedCorrectedCrossCorrelation(Analysis):
-      """
-      It computes the cross-correlation between different AnalogSignalList but shifted across trials, 
-      in order to avoid covariations introduced by simultaneous stimulation.
-
-      It takes all the responses in the datastore and for each AnalogSignalList ADSs listed in 'neurons' ids it will:
-      - compute, from one 'raw' trial, the cross-correlation between the analog signals corresponding to one reference and one target neuron
-      - compute, from two different trials, the cross-correlation between the same analog signals of reference and target neurons
-      - subtract cross-trial and raw cross-correlation vectors
-
-      For each couple (target & reference) it will create an AnalogSignalList containing the calculated cross-correlation vector.
-      
-      Other parameters
-      ---------------- 
-      bins : int 
-                  The number of bins around the 0 point
-      bin_length : float (ms)
-                  The bin length of the cross-correlation
-      neurons : list
-                  The list of neuron ids for which to compute the crosscorrelation
-      size : float
-                  The size of a square in which the neurons will be searched at the opposite extremes of the sheet
-      """  
-      required_parameters = ParameterSet({
-        'bins' : int,  # the number of bins
-        'bin_length' : float,  # the bin length of the PSTH
-        'neurons': list,  # the list of neuron ids for which to compute the cross-correlation
-        'size': float, # The size of a square in which the neurons will be searched
-      })
-
-      def perform_analysis(self):
-          for sheet in self.datastore.sheets() :
-              # get a datastore view for each sheet
-              dsv = queries.param_filter_query(self.datastore, sheet_name=sheet)
-              # Locate a pair of neurons to be at furthest positions in the sheet:
-              # take neurons ids, get their indexes, get their positions in the sheet, 
-              # get sheet dimensions, search in one extreme area for a neuron, then search the other extreme.
-              # Get sheet params
-              sheet_params = dsv.get_sheet_parameters(sheet_name=sheet)
-              # print "sheet_params",sheet_params
-              # print "sheet_params.density",sheet_params['density']
-              # print "sheet_params.sx",sheet_params['sx']
-              lower_range = [ -(sheet_params['sx']/2), -(sheet_params['sx']/2)+self.parameters.size ]
-              higher_range = [ (sheet_params['sx']/2)-self.parameters.size, (sheet_params['sx']/2) ]
-              print "    lower extreme:",lower_range
-              print "    higher extreme:",higher_range
-              # Get sheet indexes from ids of recorded neurons
-              #print "neuron ids:",self.parameters.neurons
-              rec_idd_idx = zip( self.parameters.neurons, dsv.get_sheet_indexes(sheet_name=sheet,neuron_ids=self.parameters.neurons) )
-              #print "neuron indexes:",rec_idd_idx
-              # get positions in the sheet of the recorded neurons
-              positions = dsv.get_neuron_postions()
-              # initialize pair array to dummy ids, first and last recorded neurons ids
-              pair_ids_idx = [ (self.parameters.neurons[0],positions[sheet][0][0]), (self.parameters.neurons[-1],positions[sheet][0][-1]) ]
-              for idd,idx in rec_idd_idx:
-                  #print "neuron(",idd,idx,") position:", positions[sheet][0][ idx ], positions[sheet][1][ idx ]
-                  # search lowest id
-                  if positions[sheet][0][idx] < positions[sheet][0][ pair_ids_idx[0][1] ]:
-                      pair_ids_idx[0] = (idd,idx)
-                  # search highest id
-                  if positions[sheet][0][idx] > positions[sheet][0][ pair_ids_idx[1][1] ]:
-                      pair_ids_idx[1] = (idd,idx)
-                      #print "neuron(",idx,") position:", positions[sheet][0][ idx ], positions[sheet][1][ idx ]
-                  #print pair_ids_idx
-              # extract only ids
-              pair_ids = [ x[0] for x in pair_ids_idx ]
-              print "    lowest id (",pair_ids[0],") position:", positions[sheet][0][ pair_ids_idx[0][1] ], positions[sheet][1][ pair_ids_idx[0][1] ]
-              print "    highest id (",pair_ids[1],") position:", positions[sheet][0][ pair_ids_idx[1][1] ], positions[sheet][1][ pair_ids_idx[1][1] ]
-              # # for this sheet, get AnalogSignalList
-              dsv = queries.param_filter_query(dsv, identifier="AnalogSignalList")
-              # tests whether DSV contains only ADS associated with the same stimulus type
-              assert queries.ads_with_equal_stimulus_type(dsv)
-              # tests whether DSV contains only ADS of the same kind and parametrization
-              assert queries.equal_ads(dsv,except_params=['stimulus_id'])
-              # get a list of DSV each holding analog signals that have the same values of stimulus parameters in parameter_list
-              dsvs = queries.partition_by_stimulus_paramter_query( dsv, parameter_list=['trial'] )
-              # get spiketrains by trial
-              dsvs_spiketrains = {} 
-              #neurons_ids = []
-              # dsvs_spiketrains will have keys labeled after trial number, containing each the spiketrains from each recorded neuron (source_id)
-              for dsv in dsvs :
-                  # get stimulus id name to label segments corresponding to a trial
-                  for stimid, seg in zip( [MozaikParametrized.idd(s) for s in dsv.get_stimuli()], dsv.get_segments() ) :
-                      #print stimid.trial, seg.name, seg.description
-                      dsvs_spiketrains[stimid.trial] = seg.get_spiketrain( pair_ids ) #pair_ids self.parameters.neurons
-              # RAW CROSS-CORRELATION
-              # raw_xcorr will have keys labeled after trial number, containing all combinations with no repetition (and considering that cross-correlation is simmetric)
-              # each raw_xcorr analogsignal will have an annotation 'xcorr_ids' with the list of target and source of the xcorr
-              raw_xcorr = {}
-              for trial in dsvs_spiketrains.keys() :
-                  xcorr = [] # local storage
-                  for ref in dsvs_spiketrains[trial] :
-                      for trg in dsvs_spiketrains[trial] :
-                          # optimization: cross-correlation is symmetric thus we consider only forward spiketrains
-                          if trg.annotations['source_id']<=ref.annotations['source_id'] :
-                              continue 
-                          xcorr.append(
-                              PerNeuronPairAnalogSignalList(
-                                  [self.cross_correlation( ref, trg, self.parameters.bins, self.parameters.bin_length )],
-                                  [ (ref.annotations['source_id'],trg.annotations['source_id']) ],
-                                  qt.dimensionless,
-                                  sheet_name = sheet,
-                                  tags = self.tags,
-                                  x_axis_name = 'Time from reference',
-                                  y_axis_name = 'Corrected cross-correlation (bin=' + str(self.parameters.bin_length) + ')',
-                                  analysis_algorithm = self.__class__.__name__,
-                                  stimulus_id = str(stimid)
-                              )
-                          )
-                  raw_xcorr[trial] = xcorr
-              #print raw_xcorr
-              # SHIFT PREDICTOR CROSS-CORRELATION
-              # for each raw_xcorr analogsignal take the reference and change the target to the same source_id but different trial
-              shift_xcorr = {}
-              # the two dictionaries in the end must be identical by indexes in order to do a one-by-one subtraction
-              for trial in raw_xcorr.keys() :
-                  xcorr = [] # local storage
-                  # loop over raw_xcorr[trial] source_ids and anothertrial same source_ids
-                  anothertrial = (trial+1)%len(raw_xcorr.keys())
-                  #print trial, anothertrial
-                  for rcorr in raw_xcorr[trial] :
-                      # compute the xcorr if the references and targets of spiketrains of different trials corresponds to those of the raw_xcorr 
-                      #print rcorr.ids[0][0], rcorr.ids[0][1]
-                      for ref in dsvs_spiketrains[trial] :
-                          for trg in dsvs_spiketrains[anothertrial] :
-                              if ref.annotations['source_id']==rcorr.ids[0][0] and trg.annotations['source_id']==rcorr.ids[0][1] :
-                                  #print rcorr.get_asl_by_id_pair(rcorr.ids[0])
-                                  xcorr.append( 
-                                      PerNeuronPairAnalogSignalList(
-                                          [ rcorr.get_asl_by_id_pair(rcorr.ids[0]) - self.cross_correlation( ref, trg, self.parameters.bins, self.parameters.bin_length ) ],
-                                          rcorr.ids,
-                                          qt.dimensionless,
-                                          sheet_name = sheet,
-                                          tags = self.tags,
-                                          x_axis_name = 'Time from reference',
-                                          y_axis_name = 'Corrected cross-correlation (bin=' + str(self.parameters.bin_length) + ')',
-                                          analysis_algorithm = self.__class__.__name__,
-                                          stimulus_id = str(stimid)
-                                      )
-                                  )
-                  shift_xcorr[trial] = xcorr
-              #print shift_xcorr
-              # Save 
-              self.datastore.full_datastore.add_analysis_result( 
-                  numpy.sum([ xcorr for xcorr in shift_xcorr[trial] for trial in shift_xcorr.keys() ]).division_by_num(len(shift_xcorr.keys()))
-                  #numpy.sum([ xcorr for xcorr in raw_xcorr[trial] for trial in raw_xcorr.keys() ]).division_by_num(len(raw_xcorr.keys()))
-              )
-                
-      def cross_correlation( self, reference, target, bins, bin_length ):
-          """
-          The function returns the cross-correlation of the spiketrains with bin length bin_length.
-          
-          Parameters
-          ----------
-          reference, target : SpikeTrains
-                     Reference and target spike trains. They are assumed to start and end at the same time.
-
-          bin_length : float (ms) 
-                     Bin length.
-
-          Returns
-          -------
-          xcorr : AnalogSignalList
-                 The cross correlation of each spiketrain with each other (without auto-correlation). 
-          
-          Note
-          ----
-          The spiketrains are assumed to start and stop at the same time!
-          """
-          t_start = round( reference.t_start.rescale(qt.ms), 5 )
-          t_stop = round( reference.t_stop.rescale(qt.ms), 5 )
-          # initialize the correlation matrix
-          c = numpy.zeros(bins*2)
-          for spr in reference:
-              for spt in target:
-                  # take only the bins interval
-                  if abs(spr-spt) > bins*bin_length:
-                      continue
-                  #print "mod:", spr, spt, bins, (spr-spt)/bin_length, int(bins+int((spr-spt)/bin_length))
-                  c[int(bins+int((spr-spt)/bin_length))-1]+=1 
-          return NeoAnalogSignal( c, t_start=-(len(c)/2)*(bin_length*qt.ms), sampling_period=bin_length*qt.ms, units=munits.spike_per_sec )
-
-
-
 class TrialVariability(Analysis):
       """
       For each neuron it calculates the trial-to-trial variability of Vm or conductance (depending on parameters) for all recording in the datastore, 
@@ -610,6 +425,9 @@ class TrialVariability(Analysis):
                        asi = [NeoAnalogSignal(numpy.var(numpy.array([s.get_asl_by_id(i) for s in ads]),axis=0,ddof=1),t_start=first.t_start,sampling_period=first.sampling_period,units=first.units) for i in ads[0].ids]
                        self.datastore.full_datastore.add_analysis_result(AnalogSignalList(asi,ads[0].ids,first.units,y_axis_name = ads[0].y_axis_name + ' trial-to-trial variance',x_axis_name=ads[0].x_axis_name,sheet_name=sheet,tags=self.tags,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
 
+
+
+
 class TrialMean(Analysis):
       """
       For each neuron it calculates the mean over trials of Vm or conductance (depending on parameters) for all recording in the datastore, 
@@ -673,6 +491,9 @@ class TrialMean(Analysis):
                        first = ads[0].asl[0]
                        asi = [NeoAnalogSignal(numpy.mean(numpy.array([s.get_asl_by_id(i) for s in ads]),axis=0),t_start=first.t_start,sampling_period=first.sampling_period,units=first.units) for i in ads[0].ids]
                        self.datastore.full_datastore.add_analysis_result(AnalogSignalList(asi,ads[0].ids,first.units,y_axis_name = ads[0].y_axis_name + ' trial-to-trial mean',x_axis_name=ads[0].x_axis_name,sheet_name=sheet,tags=self.tags,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+
+
+
 
 
 class GaussianTuningCurveFit(Analysis):
@@ -796,16 +617,24 @@ class PSTH(Analysis):
       """  
       required_parameters = ParameterSet({
         'bin_length': float,  # the bin length of the PSTH
+        'neurons': list,  # the list of neuron ids for which to compute the
       })
       def perform_analysis(self):
             # make sure spiketrains are also order in the same way
             for sheet in self.datastore.sheets():
                 dsv = queries.param_filter_query(self.datastore,sheet_name=sheet)
+
                 for st,seg in zip([MozaikParametrized.idd(s) for s in dsv.get_stimuli()],dsv.get_segments()):
-                    psths = psth(seg.get_spiketrain(seg.get_stored_spike_train_ids()), self.parameters.bin_length)
+
+                    if not self.parameters.neurons:
+                      self.parameters.neurons = seg.get_stored_spike_train_ids()
+
+                    psths = psth(seg.get_spiketrain(self.parameters.neurons), self.parameters.bin_length)
+                    # psths = psth(seg.get_spiketrain(seg.get_stored_spike_train_ids()), self.parameters.bin_length)
+
                     self.datastore.full_datastore.add_analysis_result(
                         AnalogSignalList(psths,
-                                         seg.get_stored_spike_train_ids(),
+                                         self.parameters.neurons,
                                          psths[0].units,
                                          x_axis_name='time',
                                          y_axis_name='psth (bin=' + str(self.parameters.bin_length) + ')',
@@ -813,6 +642,9 @@ class PSTH(Analysis):
                                          tags=self.tags,
                                          analysis_algorithm=self.__class__.__name__,
                                          stimulus_id=str(st)))
+
+
+
 
 
 class SpikeCount(Analysis):
@@ -828,16 +660,25 @@ class SpikeCount(Analysis):
       """  
       required_parameters = ParameterSet({
         'bin_length': float,  # the bin length of the PSTH
+        'neurons': list,  # the list of neuron ids for which to compute 
+        'null':bool, # whether computing spikecount on pre-stimulus data
       })
       def perform_analysis(self):
+
             # make sure spiketrains are also order in the same way
             for sheet in self.datastore.sheets():
                 dsv = queries.param_filter_query(self.datastore,sheet_name=sheet)
-                for st,seg in zip([MozaikParametrized.idd(s) for s in dsv.get_stimuli()],dsv.get_segments()):
-                    psths = psth(seg.get_spiketrain(seg.get_stored_spike_train_ids()), self.parameters.bin_length,normalize=False)
+                for st,seg in zip([MozaikParametrized.idd(s) for s in dsv.get_stimuli()],dsv.get_segments(null=self.parameters.null)):
+
+                    if not self.parameters.neurons:
+                      self.parameters.neurons = seg.get_stored_spike_train_ids()
+
+                    psths = psth(seg.get_spiketrain(self.parameters.neurons), self.parameters.bin_length,normalize=False)
+                    # psths = psth(seg.get_spiketrain(seg.get_stored_spike_train_ids()), self.parameters.bin_length,normalize=False)
+
                     self.datastore.full_datastore.add_analysis_result(
                         AnalogSignalList(psths,
-                                         seg.get_stored_spike_train_ids(),
+                                         self.parameters.neurons,
                                          psths[0].units,
                                          x_axis_name='time',
                                          y_axis_name='spike count (bin=' + str(self.parameters.bin_length) + ')',
@@ -845,6 +686,8 @@ class SpikeCount(Analysis):
                                          tags=self.tags,
                                          analysis_algorithm=self.__class__.__name__,
                                          stimulus_id=str(st)))
+
+
 
 
 
