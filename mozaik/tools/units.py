@@ -43,6 +43,14 @@ nS = nanosiemens = UnitQuantity(
 )
 
 
+mV = millivolts = UnitQuantity(
+    'millivolts',
+    1e-3*qt.V,
+    symbol='mV',
+    aliases=['millivolts']
+)
+
+
 def periodic(unit):
     """
     Checks whether a units is periodic
