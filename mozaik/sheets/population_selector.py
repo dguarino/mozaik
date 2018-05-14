@@ -166,6 +166,38 @@ class RCSpace(PopulationSelector):
           return list(set(picked))
 
 
+class RCAnnulus(PopulationSelector):
+      """
+      This PopulationSelector selects all neurons in the sheet within two given radii.
+      
+      Other parameters
+      ----------------
+
+      inner_radius : float (degrees of visual field)
+
+      outer_radius : float (degrees of visual field)
+
+      """
+      
+      required_parameters = ParameterSet({
+        'inner_radius' : float, # the inner radius of cortical space to select (degrees of visual field)
+        'outer_radius' : float, # the outer radius of cortical space to select (degrees of visual field)
+      })  
+      
+      def generate_idd_list_of_neurons(self):
+          picked = []
+          z = self.sheet.pop.all_cells.astype(int) # PyNN population ids
+          o = numpy.array( (0.0, 0.0, 0.0) )
+          for idd in z:
+            i = self.sheet.pop.id_to_index(idd)
+            a = numpy.array( (self.sheet.pop.positions[0][i], self.sheet.pop.positions[1][i], 0.0) )
+            if numpy.linalg.norm(a - o) > self.parameters.inner_radius and numpy.linalg.norm(a - o) < self.parameters.outer_radius:
+              picked.append(idd)
+          print "population_selector : RCAnnulus : Total IDs:",len(z)
+          print "population_selector : RCAnnulus : Chosen IDs:",len(picked)
+          return list(set(picked))
+
+
 class SimilarAnnotationSelector(PopulationSelector):
       """
       This PopulationSelector picks random n neurons whose *annotation* value is closer than *distance* from specified *value* (based on euclidian norm).

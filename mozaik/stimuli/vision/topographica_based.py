@@ -16,6 +16,7 @@ from numpy import pi
 from quantities import Hz, rad, degrees, ms, dimensionless
 
 
+
 class TopographicaBasedVisualStimulus(VisualStimulus):
     """
     As we do not handle transparency in the Topographica stimuli (i.e. all pixels of all stimuli difned here will have 0% transparancy)
@@ -24,6 +25,8 @@ class TopographicaBasedVisualStimulus(VisualStimulus):
     def __init__(self,**params):
         VisualStimulus.__init__(self,**params)
         self.transparent = False # We will not handle transparency anywhere here for now so let's make it fast
+
+
 
 class SparseNoise(TopographicaBasedVisualStimulus):
     """
@@ -60,6 +63,7 @@ class SparseNoise(TopographicaBasedVisualStimulus):
                 yield (aux2,[0])
             
 
+
 class DenseNoise(TopographicaBasedVisualStimulus):
     """
     Dense Noise 
@@ -95,7 +99,7 @@ class DenseNoise(TopographicaBasedVisualStimulus):
                 yield (aux2,[0])
 
 
-                    
+
 class FullfieldDriftingSinusoidalGrating(TopographicaBasedVisualStimulus):
     """
     A full field sinusoidal grating stimulus. 
@@ -127,6 +131,7 @@ class FullfieldDriftingSinusoidalGrating(TopographicaBasedVisualStimulus):
             self.current_phase += 2*pi * (self.frame_duration/1000.0) * self.temporal_frequency
 
 
+
 class FullfieldDriftingSquareGrating(TopographicaBasedVisualStimulus):
     """
     A full field square grating stimulus. 
@@ -155,6 +160,7 @@ class FullfieldDriftingSquareGrating(TopographicaBasedVisualStimulus):
             self.current_phase += 2*pi * (self.frame_duration/1000.0) * self.temporal_frequency
  
 
+
 class FlashingSquares(TopographicaBasedVisualStimulus):
     """
     A couple of squares of dimension fitting provided spatial frequency and flashing at provided temporal frequency. 
@@ -178,8 +184,8 @@ class FlashingSquares(TopographicaBasedVisualStimulus):
         if halfseparation < size/2.:
             halfseparation = size/2.
         # flashing squares with a temporal frequency of 6Hz are happening every 1000/6=167ms
-        time = self.duration/self.frame_duration
-        stim_period = time/self.temporal_frequency
+        time = self.duration/self.frame_duration # because each imagen frame is shown for frame_duration ms
+        stim_period = (1000.0/self.temporal_frequency)/self.frame_duration
         t = 0
         t0 = 0
         # total time of the stimulus
@@ -224,6 +230,7 @@ class FlashingSquares(TopographicaBasedVisualStimulus):
             t += 1
 
 
+
 class Null(TopographicaBasedVisualStimulus):
     """
     Blank stimulus.
@@ -235,6 +242,7 @@ class Null(TopographicaBasedVisualStimulus):
                               xdensity=self.density,
                               ydensity=self.density)(),
                    [self.frame_duration])
+
 
 
 class NaturalImageWithEyeMovement(TopographicaBasedVisualStimulus):
@@ -275,6 +283,7 @@ class NaturalImageWithEyeMovement(TopographicaBasedVisualStimulus):
             self.time += 1
 
 
+
 class DriftingGratingWithEyeMovement(TopographicaBasedVisualStimulus):
     """
     A visual stimulus that simulates an eye movement over a drifting  gratings.
@@ -310,6 +319,7 @@ class DriftingGratingWithEyeMovement(TopographicaBasedVisualStimulus):
             self.current_phase += 2*pi * (self.frame_duration/1000.0) * self.temporal_frequency
             yield (image, [self.time])
             self.time = self.time + 1
+
 
 
 class DriftingSinusoidalGratingDisk(TopographicaBasedVisualStimulus):
@@ -355,6 +365,7 @@ class DriftingSinusoidalGratingDisk(TopographicaBasedVisualStimulus):
             self.current_phase += 2*pi * (self.frame_duration/1000.0) * self.temporal_frequency
 
 
+
 class FlatDisk(TopographicaBasedVisualStimulus):
     """
     A flat luminance aperture of specified radius.
@@ -377,6 +388,110 @@ class FlatDisk(TopographicaBasedVisualStimulus):
                             xdensity=self.density,
                             ydensity=self.density)()  
             yield (d,[self.current_phase])
+
+
+
+class FlashedBar(TopographicaBasedVisualStimulus):
+    """
+    A flashed bar.
+    This stimulus corresponds to flashing a bar of specific *orientation*,
+    *width* and *length* at pre-specified position for *flash_duration* of milliseconds. 
+    For the remaining time, until the *duration* of the stimulus, constant *background_luminance* 
+    is displayed.
+    """
+    relative_luminance = SNumber(dimensionless,bounds=[0,1.0],doc="The scale of the stimulus. 0 is dark, 1.0 is double the background luminance")
+    orientation = SNumber(rad, period=pi, bounds=[0,pi], doc="Grating orientation")
+    width = SNumber(cpd, doc="Spatial frequency of the grating")
+    length = SNumber(Hz, doc="Temporal frequency of the grating")
+    flash_duration = SNumber(ms, doc="The duration of the bar presentation.")
+    x = SNumber(degrees, doc="The x location of the center of the bar.")
+    y = SNumber(degrees, doc="The y location of the center of the bar.")
+    
+    def frames(self):
+        num_frames = 0
+        while True:
+    
+            d = imagen.RawRectangle(offset = self.background_luminance,
+                                    scale = self.background_luminance*(self.relative_luminance-0.5),
+                                    bounds=BoundingBox(radius=self.size_x/2),
+                                    xdensity=self.density,
+                                    ydensity=self.density,
+                                    x = self.x,
+                                    y = self.y,
+                                    orientation=self.orientation,
+                                    size = self.width,
+                                    aspect_ratio = self.length/ self.width)()  
+
+                                    
+            b = imagen.Constant(scale=self.background_luminance,
+                    bounds=BoundingBox(radius=self.size_x/2),
+                    xdensity=self.density,
+                    ydensity=self.density)()
+                    
+            num_frames += 1;
+            if (num_frames-1) * self.frame_duration < self.flash_duration: 
+                yield (d,[1])
+            else:
+                yield (b,[0])
+
+
+
+class BrokenBar(TopographicaBasedVisualStimulus):
+    """
+    One broken bar (two flashed bars).
+    This stimulus corresponds to flashing a broken bar of specific *orientation*,
+    *width* and *length* at pre-specified position for *flash_duration* of milliseconds. 
+    For the remaining time, until the *duration* of the stimulus, constant *background_luminance* 
+    is displayed.
+    """
+    relative_luminance = SNumber(dimensionless,bounds=[0,1.0],doc="The scale of the stimulus. 0 is dark, 1.0 is double the background luminance")
+    orientation = SNumber(rad, period=pi, bounds=[0,pi], doc="Grating orientation")
+    width = SNumber(cpd, doc="Spatial frequency of the grating")
+    length = SNumber(Hz, doc="Temporal frequency of the grating")
+    distance = SNumber(cpd, doc="Distance between the two bars")
+    flash_duration = SNumber(ms, doc="The duration of the bar presentation.")
+    x = SNumber(degrees, doc="The x location of the center of the two bars.")
+    y = SNumber(degrees, doc="The y location of the center of the two bars.")
+
+    def frames(self):
+        num_frames = 0
+        while True:
+    
+            d1 = imagen.RawRectangle(offset = self.background_luminance,
+                                    scale = self.background_luminance*(self.relative_luminance-0.5),
+                                    bounds=BoundingBox(radius=self.size_x/2),
+                                    xdensity=self.density,
+                                    ydensity=self.density,
+                                    x = self.x + numpy.cos(self.orientation+numpy.pi/2) * (-self.distance + (2*self.distance)),
+                                    y = self.y + numpy.sin(self.orientation+numpy.pi/2) * (-self.distance + (2*self.distance)),
+                                    orientation=self.orientation,
+                                    size = self.width,
+                                    aspect_ratio = self.length/ self.width)()  
+    
+            d2 = imagen.RawRectangle(offset = self.background_luminance,
+                                    scale = self.background_luminance*(self.relative_luminance-0.5),
+                                    bounds=BoundingBox(radius=self.size_x/2),
+                                    xdensity=self.density,
+                                    ydensity=self.density,
+                                    x = self.x - numpy.cos(self.orientation+numpy.pi/2) * (-self.distance + (2*self.distance)),
+                                    y = self.y - numpy.sin(self.orientation+numpy.pi/2) * (-self.distance + (2*self.distance)),
+                                    orientation=self.orientation,
+                                    size = self.width,
+                                    aspect_ratio = self.length/ self.width)()  
+                                    
+            b = imagen.Constant(scale=self.background_luminance,
+                    bounds=BoundingBox(radius=self.size_x/2),
+                    xdensity=self.density,
+                    ydensity=self.density)()
+
+            d =  numpy.add.reduce([d1,d2])
+ 
+            num_frames += 1;
+            if (num_frames-1) * self.frame_duration < self.flash_duration: 
+                yield (d,[1])
+            else:
+                yield (b,[0])
+
 
 
 class DriftingSinusoidalGratingCenterSurroundStimulus(TopographicaBasedVisualStimulus):

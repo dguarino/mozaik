@@ -193,13 +193,15 @@ class MozaikSegment(Segment):
             """
             return [len(s)/(s.t_stop.rescale(qt.s).magnitude-s.t_start.rescale(qt.s).magnitude) for s in self.spiketrains]
 
-        def isi(self):
-            """
-            Returns an array containing arrays (one per each neurons) with the inter-spike intervals of the SpikeTrain objects.
-            """
-            return [numpy.diff(s) for s in self.spiketrains]
+        def isi(self, neuron_id=None):
+            ids = [s.annotations['source_id'] for s in self.spiketrains]
+            # st = self.spiketrains.time_slice()
+            if isinstance(neuron_id,list) or isinstance(neuron_id,numpy.ndarray):
+              return [numpy.diff(s) for s in [self.spiketrains[ids.index(i)] for i in neuron_id]]
+            else:
+              return [numpy.diff(s) for s in self.spiketrains[ids.index(neuron_id)]]
 
-        def cv_isi(self):
+        def cv_isi(self, neuron_id=None):
             """
             Return array with the coefficient of variation of the isis, one per each neuron.
             
@@ -214,7 +216,7 @@ class MozaikSegment(Segment):
             
             http://en.wikipedia.org/wiki/Coefficient_of_variation
             """
-            isi = self.isi()
+            isi = self.isi(neuron_id)
             cv_isi = []
             for _isi in isi:
                 if len(_isi) > 0:

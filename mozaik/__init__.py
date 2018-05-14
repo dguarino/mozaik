@@ -48,9 +48,11 @@ def setup_mpi():
     global pynn_rng
     global mpi_comm
     from pyNN.random import NumpyRNG
-    pynn_rng = NumpyRNG(seed=1023)
+    # pynn_rng = NumpyRNG(seed=1023)
+    pynn_rng = NumpyRNG(seed=23)
     rng = numpy.random.RandomState()
-    rng.seed(513)
+    # rng.seed(513)
+    rng.seed(51)
     try:
         from mpi4py import MPI
     except ImportError:
@@ -75,7 +77,8 @@ def get_seeds(size=None):
     important that the same number of seeds are requested in each MPI process to ensure 
     reproducability of simulations!
     """
-    return rng.randint(9223372036854775807,size=size)
+    # return rng.randint(9223372036854775807,size=size)
+    return rng.randint(922337203,size=size)
 
 def getMozaikLogger():
     """

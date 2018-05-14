@@ -638,7 +638,7 @@ class MeasureOrientationContrastTuning(VisualExperiment):
 
 class MeasureFeatureInducedCorrelation(VisualExperiment):
     """
-    Measure feature-induced correlation between a couple of neurons (separated by some degrees in visual space) using square grating disk and flashing squares.
+    Measure feature-induced correlation between neurons (separated by some degrees in visual space) using square grating and flashing squares.
     
     Parameters
     ----------
@@ -689,6 +689,24 @@ class MeasureFeatureInducedCorrelation(VisualExperiment):
                         temporal_frequency=temporal_frequency
                     )
                 )
+                # self.stimuli.append(
+                #     topo.FullfieldDriftingSinusoidalGrating(
+                #         frame_duration=frame_duration,
+                #         size_x=model.visual_field.size_x,
+                #         size_y=model.visual_field.size_y,
+                #         location_x=0.0,
+                #         location_y=0.0,
+                #         background_luminance=self.background_luminance,
+                #         contrast = contrast,
+                #         duration=exp_duration,
+                #         density=self.density,
+                #         trial=k,
+                #         orientation=orientation,
+                #         spatial_frequency=sf,
+                #         temporal_frequency=temporal_frequency
+                #     )
+                # )
+
         # FLASHING SQUARES
         # the spatial_frequencies matters because squares sizes is established using the spatial frequency as for the drifting grating
         for sf in spatial_frequencies:
@@ -840,5 +858,184 @@ class MeasureSpontaneousActivity(VisualExperiment):
                                 duration=duration,
                                 density=self.density,
                                 trial=k))    
+    def do_analysis(self, data_store):
+        pass
+
+
+
+class MapPhaseResponseWithBarStimulus(VisualExperiment):
+    """
+    Map RF with a bar stimuli.
+    This experiment presents a series of flashed bars at pre-specified range of 
+    displacements from the center along the line that is  perpendicularly to 
+    the elongated axis of the bars. This is an experiment commonly used to obtain
+    1D approximation of the 2D receptive field of orientation selective cortical
+    cells.
+    
+    Parameters
+    ----------
+    model : Model
+          The model on which to execute the experiment.
+    Other parameters
+    ----------------
+    model : Model
+          The model on which to execute the experiment.
+    
+    x : float
+      The x corrdinates (of center) of the area in which the mapping will be done.
+    y : float
+      The y corrdinates (of center) of the area in which the mapping will be done.
+        
+    length : float
+          The length of the bar.
+    
+    width : float
+          The width of the bar.
+             
+    orientation : float
+                The orientation of the bar.
+    max_offset : float
+               The maximum offset from the central position (defined by x and y) prependicular to the length of the bar at which the bars will be flashed.
+    steps : int
+         The number of steps in which the bars will be flashed between the two extreme positions defined by the max_offset parameter, along the axis prependicular to the length of the bar.
+    
+    duration : float
+             The duration of single presentation of the stimulus.
+    
+    flash_duration : float
+             The duration of the presence of the bar.
+    
+    relative_luminance : float 
+              Luminance of the bar relative to background luminance. 0 is dark, 1.0 is double the background luminance.
+    
+    num_trials : int
+               Number of trials each each stimulus is shown.
+    """
+    
+    required_parameters = ParameterSet({
+            'x' : float,
+            'y' : float,
+            'length' : float,
+            'width' : float,
+            'orientation' : float,
+            'max_offset' : float,
+            'steps' : int,
+            'duration' : float,
+            'flash_duration' : float, 
+            'relative_luminance' : float,
+            'num_trials' : int,
+    })  
+    
+    def __init__(self, model,parameters):
+        VisualExperiment.__init__(self, model,parameters)
+        for k in xrange(0, self.parameters.num_trials):
+            for s in xrange(0, self.parameters.steps):
+                self.stimuli.append(
+                    topo.FlashedBar(
+                                frame_duration = self.frame_duration,
+                                size_x=model.visual_field.size_x,
+                                size_y=model.visual_field.size_y,
+                                location_x=0.0,
+                                location_y=0.0,
+                                background_luminance=self.background_luminance,
+                                duration=self.parameters.duration,
+                                density=self.density,
+                                relative_luminance = self.parameters.relative_luminance,
+                                orientation = self.parameters.orientation,
+                                width = self.parameters.width,
+                                length = self.parameters.length,
+                                flash_duration = self.parameters.flash_duration,
+                                x = self.parameters.x + numpy.cos(self.parameters.orientation+numpy.pi/2) * (-self.parameters.max_offset + (2*self.parameters.max_offset)/ (self.parameters.steps-1) * s),
+                                y = self.parameters.y + numpy.sin(self.parameters.orientation+numpy.pi/2) * (-self.parameters.max_offset + (2*self.parameters.max_offset)/ (self.parameters.steps-1) * s),
+                                trial=k))
+
+    def do_analysis(self, data_store):
+        pass
+
+
+
+
+class MeasureBrokenBarResponse(VisualExperiment):
+    """
+    Test of line completion (as in Mumford 1991).
+
+    Parameters
+    ----------
+    model : Model
+          The model on which to execute the experiment.
+    Other parameters
+    ----------------
+    model : Model
+          The model on which to execute the experiment.
+    
+    x : float
+      The x coordinates (of center) of the area in which the bar will be shown.
+
+    y : float
+      The y coordinates (of center) of the area in which the bar will be shown.
+        
+    length : float
+          The length of the bar.
+    
+    width : float
+          The width of the bar.
+             
+    orientation : float
+                The orientation of the bar.
+
+    distance : float
+               The maximum offset from the central position (defined by x and y) prependicular to the length of the bar at which the bars will be flashed.
+    
+    duration : float
+             The duration of single presentation of the stimulus.
+    
+    flash_duration : float
+             The duration of the presence of the bar.
+    
+    relative_luminance : float 
+              Luminance of the bar relative to background luminance. 0 is dark, 1.0 is double the background luminance.
+    
+    num_trials : int
+               Number of trials each each stimulus is shown.
+    """
+    
+    required_parameters = ParameterSet({
+            'x' : float,
+            'y' : float,
+            'length' : float,
+            'width' : float,
+            'orientation' : float,
+            'distance' : float,
+            'duration' : float,
+            'flash_duration' : float, 
+            'relative_luminance' : float,
+            'num_trials' : int,
+    })  
+    
+    def __init__(self, model,parameters):
+        VisualExperiment.__init__(self, model,parameters)
+        for k in xrange(0, self.parameters.num_trials):
+            self.stimuli.append(
+                topo.BrokenBar(
+                    frame_duration = self.frame_duration,
+                    size_x=model.visual_field.size_x,
+                    size_y=model.visual_field.size_y,
+                    location_x=0.0,
+                    location_y=0.0,
+                    background_luminance=self.background_luminance,
+                    distance=self.parameters.distance,
+                    duration=self.parameters.duration,
+                    density=self.density,
+                    relative_luminance = self.parameters.relative_luminance,
+                    orientation = self.parameters.orientation,
+                    width = self.parameters.width,
+                    length = self.parameters.length,
+                    flash_duration = self.parameters.flash_duration,
+                    x = self.parameters.x,
+                    y = self.parameters.y,
+                    trial=k
+                )
+            )
+
     def do_analysis(self, data_store):
         pass

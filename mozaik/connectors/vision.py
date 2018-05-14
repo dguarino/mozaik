@@ -177,7 +177,7 @@ class V1CorrelationBasedConnectivity(ModularConnectorFunction):
     """
     This connector function implements  a correlation based rules for neurons with 
     gabor like RFs, where excitatory synapses are more-likely between neurons with correlated 
-    RFs while inhibitory synapses are more likely among anti-correlated synapses.
+    RFs while inhibitory synapses are more likely among anti-correlated RFs neurons.
     
     Note that this is very similar to how push-pull connectvitity is typically defined, but 
     there are important differences mainly that the phase of the cells does not play role when connecting

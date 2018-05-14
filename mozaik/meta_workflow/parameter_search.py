@@ -51,7 +51,7 @@ class LocalSequentialBackend(object):
             modified_parameters.append(k)
             modified_parameters.append(str(parameters[k]))
          
-        subprocess.call(' '.join(["python", run_script, simulator_name, str(self.num_threads), parameters_url]+modified_parameters+[simulation_run_name]),shell=True)
+        subprocess.call(' '.join(["mpirun -np 1 python", run_script, simulator_name, str(self.num_threads), parameters_url]+modified_parameters+[simulation_run_name]),shell=True)
 
 
 
