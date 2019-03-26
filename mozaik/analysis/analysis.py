@@ -88,23 +88,30 @@ class TrialAveragedFiringRate(Analysis):
     """
     This analysis takes each recording in DSV that has been done in response to stimulus type 'stimulus_type' 
     and calculates the average (over trials) number of spikes. For each set of equal recordings (except trial) it creates one PerNeuronValue 
-    `AnalysisDataStructure` instance containing the trial averaged firing rate per each recorded 
-    neuron.
+    `AnalysisDataStructure` instance containing the trial averaged firing rate per each recorded neuron.
     """
-    
+  
+    required_parameters = ParameterSet({
+        'neurons': list,  # the list of neuron ids for which to compute the analysis
+    })
+
     def perform_analysis(self):
         
-        for sheet in self.datastore.sheets():
+        for sheet in self.datastore.sheets():            
             dsv1 = queries.param_filter_query(self.datastore, sheet_name=sheet)
             segs = dsv1.get_segments()
+
+            if not self.parameters.neurons:
+              self.parameters.neurons = segs[0].get_stored_spike_train_ids()
+
             st = [MozaikParametrized.idd(s) for s in dsv1.get_stimuli()]
+
             # transform spike trains due to stimuly to mean_rates
-            mean_rates = [numpy.array(s.mean_rates()) for s in segs]
+            mean_rates = [numpy.array(s.mean_rates(neuron_id=self.parameters.neurons)) for s in segs]
+
             # collapse against all parameters other then trial
-            #for s in st:
-            #    print st
-            
             (mean_rates, s) = colapse(mean_rates, st, parameter_list=['trial'])
+
             # take a sum of each
             mean_rates = [sum(a)/len(a) for a in mean_rates]
 
@@ -113,7 +120,10 @@ class TrialAveragedFiringRate(Analysis):
             logger.debug('Adding PerNeuronValue containing trial averaged firing rates to datastore')
             for mr, st in zip(mean_rates, s):
                 self.datastore.full_datastore.add_analysis_result(
-                    PerNeuronValue(mr,segs[0].get_stored_spike_train_ids(),units,
+                    PerNeuronValue(mr,
+                                   #segs[0].get_stored_spike_train_ids(), #self.parameters.neurons,
+                                   self.parameters.neurons,
+                                   units,
                                    stimulus_id=str(st),
                                    value_name='Firing rate',
                                    sheet_name=sheet,

@@ -187,11 +187,16 @@ class MozaikSegment(Segment):
                 self.load_full()
             return [s.annotations['source_id'] for s in self.spiketrains]
 
-        def mean_rates(self):
+        def mean_rates(self, neuron_id=None):
             """
             Returns the mean rates of the spiketrains in spikes/s.
             """
-            return [len(s)/(s.t_stop.rescale(qt.s).magnitude-s.t_start.rescale(qt.s).magnitude) for s in self.spiketrains]
+            ids = [s.annotations['source_id'] for s in self.spiketrains]
+            if isinstance(neuron_id,list) or isinstance(neuron_id,numpy.ndarray):
+              return [len(s)/(s.t_stop.rescale(qt.s).magnitude-s.t_start.rescale(qt.s).magnitude) for s in [self.spiketrains[ids.index(i)] for i in neuron_id]]
+            else:
+              return [len(s)/(s.t_stop.rescale(qt.s).magnitude-s.t_start.rescale(qt.s).magnitude) for s in self.spiketrains[ids.index(neuron_id)]]
+           # return [len(s)/(s.t_stop.rescale(qt.s).magnitude-s.t_start.rescale(qt.s).magnitude) for s in self.spiketrains]
 
         def isi(self, neuron_id=None):
             ids = [s.annotations['source_id'] for s in self.spiketrains]

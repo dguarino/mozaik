@@ -326,8 +326,8 @@ class PlotTuningCurve(Plotting):
                             vv = val[:,j]
                             p = par
                         v = v + vv
-                    # val = v / len(self.parameters.neurons) # DG Reminder for errorbars
-                    # par = p
+                    val = v / len(self.parameters.neurons) # DG Reminder for errorbars
+                    par = p
                 elif self.parameters.centered:
                     val,par = self.center_tc(val[:,idx],par,period,self.max_mean_response_indexes[i][idx])
                 else:
@@ -1220,7 +1220,11 @@ class ConnectivityPlot(Plotting):
         self.connections = []
 
         _connections = datastore.get_analysis_result(identifier='Connections')
-        
+        self.length=len(self.connections)
+
+        if len(_connections) < 1:
+            raise ValueError('ERROR: empty connection list')
+
         self.pnvs = None
         if pnv_dsv != None:
             self.pnvs = []
