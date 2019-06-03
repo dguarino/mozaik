@@ -12,7 +12,7 @@ a CellWithReceptiveField() is instantiated, its initialize() called.
 Then, in a loop for each stimulus frame the cell.view() is called, which does the convolution of receptive_field.kernel * view_array.
 Finally, the cell.response_current() is called, at the end of stimulus presentation, to translate the unitless convolution into nA.
 """
-
+import pylab
 import numpy
 import os.path
 import pickle
@@ -28,6 +28,8 @@ from mozaik.connectors.fast import OneToOneConnector
 from parameters import ParameterSet
 
 logger = mozaik.getMozaikLogger()
+
+
 
 
 def meshgrid3D(x, y, z):
@@ -128,11 +130,12 @@ class SpatioTemporalReceptiveField(object):
         #logger.debug("Created receptive field kernel: width=%gº, height=%gº, duration=%g ms, shape=%s" % (width, height, duration, kernel.shape))
         #logger.debug("before normalization: min=%g, max=%g" % (kernel.min(), kernel.max()))
         kernel = kernel/(nx * ny * nt)  # normalize to make the kernel sum quasi-independent of the quantization
-
-        #logger.debug("  after normalization: min=%g, max=%g, sum=%g" % (kernel.min(), kernel.max(), kernel.sum()))
+        #logger.debug("  after normalization: min=%g, max=%g, sum=%g" %
+        #                 (kernel.min(), kernel.max(), kernel.sum()))
         self.kernel = kernel
         self.spatial_resolution = dx
         self.temporal_resolution = dt
+        self.reshaped_kernel = self.kernel.reshape(-1,numpy.shape(self.kernel)[2]).T
 
     @property
     def kernel_duration(self):
@@ -219,8 +222,8 @@ class CellWithReceptiveField(object):
             
         """
         # we add some extra padding to avoid having to check for index out-of-bounds in view()
-        self.response_length = numpy.ceil(stimulus_duration / self.receptive_field.temporal_resolution) \
-                                    + self.receptive_field.kernel_duration
+        self.response_length = int(numpy.ceil(stimulus_duration / self.receptive_field.temporal_resolution) \
+                                    + self.receptive_field.kernel_duration)
         # we should initialize based on multiplying the kernel by the background activity
         # R0 = K_0.I_0 + Sum[j=1,L-1] K_j.B
         # R1 = K_0.I_1 + K_1.I_0 + Sum[j=2,L-1] K_j.B
@@ -237,7 +240,8 @@ class CellWithReceptiveField(object):
             self.response[i] += background_luminance * self.receptive_field.kernel[:, :, i+1:L].sum()
         
         self.i = 0
-        
+    
+
     def view(self):
         """
         Look at the visual space and update t
@@ -250,6 +254,7 @@ class CellWithReceptiveField(object):
              where i' = (k-j)//α  (// indicates integer division, discarding the remainder)
         To avoid loading the entire image sequence into memory, we build up the response array one frame at a time.
         """
+
         # window for each RF
         view_array = self.visual_space.view( self.visual_region, pixel_size=self.receptive_field.spatial_resolution )
         
@@ -269,12 +274,14 @@ class CellWithReceptiveField(object):
             self.response[j: j+self.receptive_field.kernel_duration] += time_course[:len(self.response[j: j+self.receptive_field.kernel_duration])]
         self.i += self.update_factor  # we assume there is only ever 1 visual space used between initializations
 
+
     def response_current(self):
         """
         Multiply the response (units of luminance (cd/m²) if we assume the
         kernel values are dimensionless) by the 'gain', to produce a current in
         nA. Returns a dictionary containing 'times' and 'amplitudes'.
         """
+
         # Non-linear terms for luminance and contrast gain
         if self.gain_control.non_linear_gain != None:
             # Luminance response of the kernel: absolute rf spatial kernel mean
@@ -346,6 +353,20 @@ class CellWithReceptiveField(object):
         # print "response", response                          
         # time point resolution
         time_points = self.receptive_field.temporal_resolution * numpy.arange(0, len(response))
+
+        #ylab.figure()
+        #ylab.title(str(numpy.shape(self.receptive_field.kernel)))
+        #ylab.subplot(3,1,1)
+        #ylab.imshow(numpy.mean(self.receptive_field.kernel,axis=0))
+        #ylab.title(str(numpy.shape(self.receptive_field.kernel)))
+        #ylab.colorbar()
+        #ylab.subplot(3,1,2)
+        #ylab.imshow(self.va)
+        #ylab.colorbar()
+        #ylab.subplot(3,1,3)
+        #ylab.plot(time_points,response)
+
+
         return {'times': time_points, 'amplitudes': response}
 
 
@@ -484,7 +505,6 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                     lgn_cell.inject(scs)
                     lgn_cell.inject(ncs)
                 
-        
         P_rf = self.parameters.receptive_field
         rf_function = eval(P_rf.func)
 
@@ -518,7 +538,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         list of frames shown to the retina.
         """
         
-        #If the chache is switched off or the we run multiprocess job switch of the cache.
+        #If the chache is switched off or we run multiprocess job switch off the cache.
         if self.parameters.cached == False or mozaik.mpi_comm.size>1:
             return None
 
@@ -595,8 +615,6 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         retinal_input : list(ndarray)
                       List of 2D arrays containing the frames of luminances that were presented to the retina.
         """
-        print stimulus
-        
         logger.debug("Presenting visual stimulus from visual space %s" % visual_space)
         visual_space.set_duration(duration)
         self.input = visual_space
@@ -607,7 +625,14 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
 
         if cached == None:
             logger.debug("Generating output spikes...")
-            (input_currents, retinal_input) = self._calculate_input_currents(visual_space, duration)
+            # Even if we didn't find the stimulus in cache, we still check if we haven't already presented it during this simulation run.
+            # This is mainly to avoid regenerating stimuli for multiple trials.
+
+            if self.internal_stimulus_cache.has_key(str(st)):
+               (input_currents, retinal_input) =  self.internal_stimulus_cache[str(st)]
+            else:
+               (input_currents, retinal_input) = self._calculate_input_currents(visual_space,
+                                                                                 duration)
         else:
             logger.debug("Retrieved spikes from cache...")
             (input_currents, retinal_input) = cached
@@ -623,20 +648,15 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 assert isinstance(input_current, dict)
                 t = input_current['times'] + offset
                 a = self.parameters.linear_scaler * input_current['amplitudes']
-                ####################
-                # import matplotlib.pyplot as plt
-                # plt.figure()
-                # plt.plot(a)
-                # plt.title(str(stimulus))
-                # plt.savefig("injection_"+rf_type+"_"+str(stimulus.temporal_frequency)+".png")
-                ####################
-                scs.set_parameters(times=t, amplitudes=a)
+                scs.set_parameters(times=t, amplitudes=a, copy=False)
                 if self.parameters.mpi_reproducible_noise:
                     t = numpy.arange(0, duration, ts) + offset
                     amplitudes = (self.parameters.noise[rf_type].mean
                                    + self.parameters.noise[rf_type].stdev
                                        * self.ncs_rng[rf_type][i].randn(len(t)))
-                    ncs.set_parameters(times=t, amplitudes=amplitudes)
+                    ncs.set_parameters(times=t, amplitudes=amplitudes,copy=False)
+
+
         # for debugging/testing, doesn't work with MPI !!!!!!!!!!!!
         #input_current_array = numpy.zeros((self.shape[1], self.shape[0], len(visual_space.time_points(duration))))
         #update_factor = int(visual_space.update_interval/self.parameters.receptive_field.temporal_resolution)
@@ -652,6 +672,9 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         # if record() has already been called, setup the recording now
         self._built = True
         self.write_cache(st, input_currents, retinal_input)
+        # also save into internal cache
+        self.internal_stimulus_cache[str(st)] = (input_currents, retinal_input)
+
         return retinal_input
 
 
@@ -678,7 +701,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                       List of 2D arrays containing the frames of luminances that were presented to the retina.
 
         """
-        times = numpy.arange(0, duration, visual_space.update_interval) + offset
+        times = numpy.array([offset,duration-visual_space.update_interval+offset])#numpy.arange(0, duration, visual_space.update_interval) + offset
         zers = times*0
         ts = self.model.sim.get_time_step()
         
@@ -690,8 +713,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                                               self.pops[rf_type].positions[1][i],
                                               self.rf[rf_type],
                                               self.parameters.gain_control,visual_space)
-                cell.initialize(visual_space.background_luminance, duration)
-                input_cells[rf_type].append(cell)
+            input_cells[rf_type].initialize(visual_space.background_luminance, duration)
         
         for rf_type in self.rf_types:
                 for i, (lgn_cell, scs, ncs, rf) in enumerate(
@@ -711,7 +733,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                         amplitudes = (self.parameters.noise[rf_type].mean
                                         + self.parameters.noise[rf_type].stdev
                                            * self.ncs_rng[rf_type][i].randn(len(t)))
-                        ncs.set_parameters(times=t, amplitudes=amplitudes)
+                        ncs.set_parameters(times=t, amplitudes=amplitudes,copy=False)
 
 
     def _calculate_input_currents(self, visual_space, duration):
@@ -745,16 +767,39 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         t = 0
         retinal_input = []
 
+        #import threading
+        #def view_cell(cell):
+        #    cell.view()
+
+
+        if False:
+            while t < duration:
+                t = visual_space.update()
+                for rf_type in self.rf_types:
+                    threads=[]
+                    for cell in input_cells[rf_type]:
+                        thread = threading.Thread(target=cell.view())
+                        thread.start()
+                        threads.append(thread)
+                        #cell.view()
+                    for t in threads:
+                        t.join()
+
+
         while t < duration:
             t = visual_space.update()
             for rf_type in self.rf_types:
                 for cell in input_cells[rf_type]:
                     cell.view()
-            visual_region = VisualRegion(location_x=0, location_y=0,
+
+
+	    if self.model.parameters.store_stimuli == True:
+                visual_region = VisualRegion(location_x=0, location_y=0,
                                          size_x=self.model.visual_field.size_x,
                                          size_y=self.model.visual_field.size_y)
-            im = visual_space.view(visual_region,
-                                   pixel_size=self.rf["X_ON"].spatial_resolution)
+	        im = visual_space.view(visual_region,pixel_size=self.rf["X_ON"].spatial_resolution)
+	    else:
+		im = None
             retinal_input.append(im)
 
         input_currents = {}

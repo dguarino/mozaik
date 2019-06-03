@@ -1,11 +1,14 @@
 # encoding: utf-8
 import pickle
 import numpy
-from scipy.interpolate import NearestNDInterpolator
+from scipy.interpolate import NearestNDInterpolator, CloughTocher2DInterpolator
 from mozaik.core import BaseComponent
 from mozaik import load_component
 from parameters import ParameterSet, ParameterDist
-from mozaik.connectors.modular import ModularSamplingProbabilisticConnector
+from mozaik.connectors.modular import ModularSamplingProbabilisticConnector, ModularSamplingProbabilisticConnectorAnnotationSamplesCount
+from mozaik.tools.distribution_parametrization import PyNNDistribution
+
+
 
 """
 This file contains meta-connectors. These are classes that represent some higher-level 
@@ -43,7 +46,7 @@ class GaborConnector(BaseComponent):
                               (note positions of neurons are always stored in
                               visual field coordinates)
     
-    `delay`                -  (ms/μm) the delay on the projections
+    `delay`                -  (ms) the delay on the projections
 
     `short_term_plasticity` - short term plasticity configuration (see basic connector)
     
@@ -66,10 +69,17 @@ class GaborConnector(BaseComponent):
         'orientation_preference':  ParameterDist,  # the orientation preference of the gabor RFs
         'phase':        ParameterDist,  # the phase of the gabor RFs
         'frequency':    ParameterDist,  # the frequency of the gabor in degrees of visual field
+        'rf_jitter' : ParameterDist, # The jitter to apply to the center of RF (on top of retinotopic position)
+
+	      'off_bias' : float, # The bias towards off responses (it will be applied to the weight strength)
 
         'topological': bool,  # should the receptive field centers vary with the position of the given neurons
                               # (note positions of neurons are always stored in visual field coordinates)
-        'delay': float,         # ms/μm the delay on the projections
+    
+        'delay_functions' : ParameterSet,  # the delay functions for ModularSamplingProbabilisticConnectorAnnotationSamplesCount (see its documentation for details)
+        'delay_expression': str,           # the delay expression for ModularSamplingProbabilisticConnectorAnnotationSamplesCount (see its documentation for details)
+        
+
 
         'short_term_plasticity': ParameterSet,
         'base_weight' : float, # the weights of synapses
@@ -95,6 +105,9 @@ class GaborConnector(BaseComponent):
 
             f = open(self.parameters.or_map_location, 'r')
             or_map = pickle.load(f)*numpy.pi
+            #or_map = pickle.load(f)*numpy.pi*2
+            #or_map = numpy.cos(or_map) + 1j*numpy.sin(or_map)
+            
             coords_x = numpy.linspace(-t_size[0]/2.0,
                                       t_size[0]/2.0,
                                       numpy.shape(or_map)[0])
@@ -108,6 +121,9 @@ class GaborConnector(BaseComponent):
             
             or_map = NearestNDInterpolator(zip(X.flatten(), Y.flatten()),
                                            or_map.flatten())
+            #or_map = CloughTocher2DInterpolator(zip(X.flatten(), Y.flatten()),
+            #                               or_map.flatten())
+
 
         phase_map = None
         if self.parameters.phase_map:
@@ -129,6 +145,10 @@ class GaborConnector(BaseComponent):
             if or_map:
                 orientation = or_map(target.pop.positions[0][j],
                                      target.pop.positions[1][j])
+                                     
+                #orientation = (numpy.angle(or_map(target.pop.positions[0][j],
+                #                     target.pop.positions[1][j]))+numpy.pi)/2.0
+                                     
             else:
                 orientation = parameters.orientation_preference.next()[0]
 
@@ -149,14 +169,17 @@ class GaborConnector(BaseComponent):
             target.add_neuron_annotation(j, 'LGNAfferentFrequency', frequency, protected=True)
             target.add_neuron_annotation(j, 'LGNAfferentSize', size, protected=True)
             target.add_neuron_annotation(j, 'LGNAfferentPhase', phase, protected=True)
+            target.add_neuron_annotation(j, 'aff_samples', self.parameters.num_samples.next(), protected=True)
+            
             
             if self.parameters.topological:
-                target.add_neuron_annotation(j, 'LGNAfferentX', target.pop.positions[0][j], protected=True)
-                target.add_neuron_annotation(j, 'LGNAfferentY', target.pop.positions[1][j], protected=True)
+                target.add_neuron_annotation(j, 'LGNAfferentX', target.pop.positions[0][j]+parameters.rf_jitter.next()[0], protected=True)
+                target.add_neuron_annotation(j, 'LGNAfferentY', target.pop.positions[1][j]+parameters.rf_jitter.next()[0], protected=True)
             else:
-                target.add_neuron_annotation(j, 'LGNAfferentX', 0, protected=True)
-                target.add_neuron_annotation(j, 'LGNAfferentY', 0, protected=True)
-                
+                target.add_neuron_annotation(j, 'LGNAfferentX', parameters.rf_jitter.next()[0], protected=True)
+                target.add_neuron_annotation(j, 'LGNAfferentY', parameters.rf_jitter.next()[0], protected=True)
+        
+        
 
         ps = ParameterSet({   'target_synapses' : 'excitatory',               
                               'weight_functions' : {  'f1' : {
@@ -166,17 +189,20 @@ class GaborConnector(BaseComponent):
                                                                             }
                                                              }                                                                              
                                                    },
-                             'delay_functions' : {},
+                             'delay_functions' : self.parameters.delay_functions,
                              'weight_expression' : 'f1', # a python expression that can use variables f1..fn where n is the number of functions in weight_functions, and fi corresponds to the name given to a ModularConnectorFunction in weight_function ParameterSet. It determines how are the weight functions combined to obtain the weights
-                             'delay_expression' : str(self.parameters.delay),
+                             'delay_expression' : self.parameters.delay_expression,
                              'short_term_plasticity' : self.parameters.short_term_plasticity,
                              'base_weight' : self.parameters.base_weight,
-                             'num_samples' : self.parameters.num_samples,
+                             'num_samples' : self.parameters.num_samples, # 0,
                              'fan_in' : self.parameters.fan_in,
+                             'annotation_reference_name' : 'aff_samples',
                           })
-        ModularSamplingProbabilisticConnector(network,name+'On',lgn_on,target,ps).connect()
+                          
+        ModularSamplingProbabilisticConnectorAnnotationSamplesCount(network,name+'On',lgn_on,target,ps).connect()
         ps['weight_functions.f1.params.ON']=False
-        ModularSamplingProbabilisticConnector(network,name+'Off',lgn_off,target,ps).connect()
+        ps['base_weight']=self.parameters.base_weight * self.parameters.off_bias
+        ModularSamplingProbabilisticConnectorAnnotationSamplesCount(network,name+'Off',lgn_off,target,ps).connect()
            
            
            

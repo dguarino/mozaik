@@ -74,7 +74,6 @@ def setup_logging():
         init_logging(Global.root_directory + "log", file_level=logging.INFO,
 	             console_level=logging.INFO)  
 
-
 def run_workflow(simulation_name, model_class, create_experiments):
     """
     This is the main function that executes a workflow. 
@@ -104,9 +103,6 @@ def run_workflow(simulation_name, model_class, create_experiments):
     
     >>> python userscript simulator_name num_threads parameter_file_path modified_parameter_path_1 modified_parameter_value_1 ... modified_parameter_path_n modified_parameter_value_n simulation_run_name
     """
-    mozaik.setup_mpi()
-        # Read parameters
-    exec "import pyNN.nest as sim" in  globals(), locals()
     
     if len(sys.argv) > 4 and len(sys.argv)%2 == 1:
         simulation_run_name = sys.argv[-1]    
@@ -118,6 +114,14 @@ def run_workflow(simulation_name, model_class, create_experiments):
         raise ValueError("Usage: runscript simulator_name num_threads parameter_file_path modified_parameter_path_1 modified_parameter_value_1 ... modified_parameter_path_n modified_parameter_value_n simulation_run_name")
         
     parameters = load_parameters(parameters_url,modified_parameters)
+
+    p={}
+    if parameters.has_key('mozaik_seed') : p['mozaik_seed'] = parameters['mozaik_seed']
+    if parameters.has_key('pynn_seed') : p['pynn_seed'] = parameters['pynn_seed']
+
+    mozaik.setup_mpi(**p)
+    # Read parameters
+    exec "import pyNN.nest as sim" in  globals(), locals()
     
     # Create results directory
     timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
@@ -135,17 +139,30 @@ def run_workflow(simulation_name, model_class, create_experiments):
     if mozaik.mpi_comm and mozaik.mpi_comm.rank == 0:
         mozaik.mpi_comm.barrier()
     
-    #let's store the full and modified parameters, if we are the 0 rank process
+    
     if mozaik.mpi_comm.rank == 0:
+        #let's store the full and modified parameters, if we are the 0 rank process
         parameters.save(Global.root_directory + "parameters", expand_urls=True)        
         import pickle
         f = open(Global.root_directory+"modified_parameters","w")
         pickle.dump(modified_parameters,f)
-        f.close()
+        f.close()        
 
     setup_logging()
     
     model = model_class(sim,num_threads,parameters)
+
+
+    if mozaik.mpi_comm.rank == 0:
+        #let's store some basic info about the simulation run
+        f = open(Global.root_directory+"info","w")
+        f.write(str({'model_class' : str(model_class), 'model_docstring' : model_class.__doc__,'simulation_run_name' : simulation_run_name, 'model_name' : simulation_name, 'creation_data' : datetime.now().strftime('%d/%m/%Y-%H:%M:%S')}))
+        f.close()
+
+
+    #import cProfile
+    #cProfile.run('run_experiments(model,create_experiments(model),parameters)','stats_new')
+
     data_store = run_experiments(model,create_experiments(model),parameters)
 
     if mozaik.mpi_comm.rank == 0:
@@ -203,15 +220,16 @@ def run_experiments(model,experiment_list,parameters,load_from=None):
     data_store.set_neuron_annotations(model.neuron_annotations())
     data_store.set_model_parameters(str(parameters))
     data_store.set_sheet_parameters(str(model.sheet_parameters()))
+    data_store.set_experiment_parametrization_list([(str(exp.__class__),str(exp.parameters)) for exp in experiment_list])
     
     t0 = time.time()
     simulation_run_time=0
     for i,experiment in enumerate(experiment_list):
         logger.info('Starting experiment: ' + experiment.__class__.__name__)
         stimuli = experiment.return_stimuli()
-        unpresented_stimuli = data_store.identify_unpresented_stimuli(stimuli)
+        unpresented_stimuli_indexes = data_store.identify_unpresented_stimuli(stimuli)
         logger.info('Running model')
-        simulation_run_time += experiment.run(data_store,unpresented_stimuli)
+        simulation_run_time += experiment.run(data_store,unpresented_stimuli_indexes)
         logger.info('Experiment %d/%d finished' % (i+1,len(experiment_list)))
     
     total_run_time = time.time() - t0

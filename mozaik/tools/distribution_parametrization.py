@@ -6,7 +6,7 @@ in which case this code should become obsolete and mozaik should fully switch to
 """
 
 from parameters import ParameterSet, ParameterRange, ParameterTable, ParameterReference
-from pyNN.random import RandomDistribution
+from pyNN.random import RandomDistribution, NumpyRNG
 import urllib, copy, warnings, numpy, numpy.random  # to be replaced with srblib
 from urlparse import urlparse
 from parameters.random import ParameterDist, GammaDist, UniformDist, NormalDist
@@ -29,12 +29,8 @@ class PyNNDistribution(RandomDistribution):
       The params is a tuple of parameters of the corresponding numpy distribution (see pyNN.random.RandomDistribution)
       For the rest of the parameters see pyNN.random.RandomDistribution
       """
-      def __init__(self,name,params=(),boundaries=None,constrain='clip'):
-          if boundaries != None:
-            assert isinstance(boundaries,tuple) , "The boundries parameter of PyNNDistribution has to be tuple, while it is: %s" % type(boundaries)
-          assert constrain == 'clip' or constrain == 'redraw', "The parameter constrain has to be either \'clip\' or \'redraw\'"
-          assert isinstance(params,tuple) , "The boundries parameter of PyNNDistribution has to be tuple"
-          RandomDistribution.__init__(self,parameters=params,boundaries=boundaries,constrain=constrain)  
+      def __init__(self,name,**params):
+          RandomDistribution.__init__(self,name,**params)  
 
 class LogNormalDistribution(ParameterDist):
     """
@@ -48,6 +44,18 @@ class LogNormalDistribution(ParameterDist):
     def next(self, n=1):
         return numpy.random.lognormal(mean=self.params['mean'], sigma=self.params['std'], size=n)
     
+
+class ParameterWithUnitsAndPeriod():
+    """
+    This is a parameter that allows us add Units and Period to a given parameter.
+    """
+    def __init__(self, value,units=None,period=None):
+        self.value = value
+        self.units = units
+        self.period = period
+
+    def __repr__(self):
+        return "ParameterWithUnitsAndPeriod("+str(self.value)+",units=" + str(self.units) + ",period=" + str(self.period) + ")"
           
 class MozaikExtendedParameterSet(ParameterSet):
     """
@@ -63,6 +71,9 @@ class MozaikExtendedParameterSet(ParameterSet):
                                 UniformDist=UniformDist,
                                 NormalDist=NormalDist,
                                 PyNNDistribution = PyNNDistribution,
+                                RandomDistribution = RandomDistribution,
+                                NumpyRNG=NumpyRNG,
+                                ParameterWithUnitsAndPeriod=ParameterWithUnitsAndPeriod,
                                 pi=numpy.pi,
                                 LogNormalDistribution=LogNormalDistribution))
         if update_namespace:
@@ -94,7 +105,7 @@ class MozaikExtendedParameterSet(ParameterSet):
                     d[k] = walk(v, k)
                 else:
                     d[k] = v
-            return ParameterSet(d, label)
+            return MozaikExtendedParameterSet(d, label)
         
         self._url = None
         if isinstance(initialiser, basestring): # url or str

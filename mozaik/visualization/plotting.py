@@ -45,9 +45,10 @@ import quantities as pq
 import matplotlib.cm as cm
 import matplotlib.gridspec as gridspec
 from scipy.interpolate import griddata
-
+import mozaik.tools.units 
 from parameters import ParameterSet
 
+from mozaik.tools.circ_stat import *
 from mozaik.core import ParametrizedObject
 from mozaik.storage import queries
 from mozaik.controller import Global
@@ -57,7 +58,7 @@ from neo.core.analogsignal import AnalogSignal as NeoAnalogSignal
 from neo.core.spiketrain import SpikeTrain as NeoSpikeTrain
 from simple_plot import StandardStyleLinePlot, SpikeRasterPlot, \
                         SpikeHistogramPlot, ConductancesPlot, PixelMovie, \
-                        ScatterPlotMovie, ScatterPlot, ConnectionPlot, SimplePlot, HistogramPlot
+                        ScatterPlotMovie, ScatterPlot, ConnectionPlot, SimplePlot, HistogramPlot, CorticalColumnSpikeRasterPlot, OrderedAnalogSignalListPlot
 from plot_constructors import LinePlot, PerStimulusPlot, PerStimulusADSPlot, ADSGridPlot
 
 import mozaik
@@ -95,6 +96,7 @@ class Plotting(ParametrizedObject):
         self.animation_update_functions = []
         self.frame_duration = frame_duration
         self.fig_param = fig_param if fig_param != None else {}
+        self.caption = "Caption not specified."
 
     def subplot(self, subplotspec):
         """
@@ -102,20 +104,21 @@ class Plotting(ParametrizedObject):
         See the module documentation for more details.
         """
         raise NotImplementedError
+
     
-    def _nip_parameters(self,n,p):
-        d = {}
-        fd = {}
-        for (k,v) in p.iteritems():
+    def _nip_parameters(self,plot_name,user_params):
+        new_user_params = {}
+        params_to_update = {}
+        for (k,v) in user_params.iteritems():
             l = k.split('.')
             assert len(l) > 1, "Parameter %s not matching the simple plot" % (k)
-            if l[0] == n or l[0] == '*':
+            if l[0] == plot_name or l[0] == '*':
                 if len(l[1:]) >1: 
-                   d['.'.join(l[1:])] = v
+                   new_user_params['.'.join(l[1:])] = v
                 else:
-                   fd[l[1]] = v
+                   params_to_update[l[1]] = v
                 
-        return d,fd
+        return new_user_params,params_to_update
     
     def _handle_parameters_and_execute_plots(self,parameters,user_parameters,gs):
         d = self.subplot(gs)
@@ -161,7 +164,7 @@ class Plotting(ParametrizedObject):
           import matplotlib.animation as animation
           self.animation = animation.FuncAnimation(self.fig,
                                       Plotting.update_animation_function,
-                                      frames = 400,
+                                      frames = 300,
                                       repeat=False,
                                       fargs=(self,),
                                       interval=self.frame_duration,
@@ -170,10 +173,17 @@ class Plotting(ParametrizedObject):
         if self.plot_file_name:
             #if there were animations, save them
             if self.animation_update_functions != []:
-                self.animation.save(Global.root_directory+self.plot_file_name+'.mov', writer='avconv', fps=10,bitrate=5000) 
+                self.animation.save(Global.root_directory+self.plot_file_name+'.mov', writer='avconv_file', fps=30,bitrate=5000) 
             else:
                 # save the analysis plot
-                pylab.savefig(Global.root_directory+self.plot_file_name)              
+                pylab.savefig(Global.root_directory+self.plot_file_name,transparent=True)       
+            
+            # and store the record
+            with open(Global.root_directory+'results','a+') as f:
+                 entry = {'parameters' : self.parameters, 'file_name' : self.plot_file_name, 'class_name' : str(self.__class__)}
+                 f.write(str(entry)+'\n')
+                 f.close()
+            
         t2 = time.time()
         logger.warning(self.__class__.__name__ + ' plotting took: ' + str(t2 - t1) + 'seconds')
 
@@ -195,6 +205,13 @@ class PlotTuningCurve(Plotting):
     varying parameter `parameter_name` of thier associated stimuli. If other parameters of the 
     stimuli are varying withing the datastore it will automatically plot one tuning curve per each combination
     of values of the other parameters and label the curve accordingly.
+    
+    Parameters
+    ----------
+    centering_pnv : PerNeuronValue 
+                  If not none, centered has to be true. The centering_pnv has to be a PerNeuronValue containing values in the domain corresponding to 
+                  parameter `parameter_name`. The tuning curves of each neuron will be cenetered around the value in this pnv corresponding to the given neuron.
+                  This will be applied also if mean is True (so the tuning curves will be centered based on the values in centering_pnv and than averaged).
     
     Other parameters
     ----------------
@@ -230,7 +247,7 @@ class PlotTuningCurve(Plotting):
       'neurons':  list,  # which neurons to plot
       'sheet_name': str,  # from which layer to plot the tuning curves
       'parameter_name': str,  # the parameter_name through which to plot the tuning curve
-      'centered' : bool, # if True it will center each set of tuning curves on the parameter value with the larges mean response across the other parameter variations
+      'centered' : bool, # if True it will center each set of tuning curves on the parameter value with the largest mean response across the other parameter variations
       'mean' : bool, # if True it will plot the mean tuning curve over the neurons (in case centered=True it will first center the TCs before computing the mean)
       'pool' : bool, # if True it will not plot each different value_name found in datastore on a sepparete line of plots but pool them together.
       'polar' : bool, # if True polar coordinates will be used
@@ -238,19 +255,28 @@ class PlotTuningCurve(Plotting):
       # 'all': bool #
     })
 
-    def __init__(self, datastore, parameters, plot_file_name=None,fig_param=None,frame_duration=0):
+    def __init__(self, datastore, parameters, plot_file_name=None,fig_param=None,frame_duration=0,centering_pnv=None,spont_level_pnv=None):
         Plotting.__init__(self, datastore, parameters, plot_file_name, fig_param,frame_duration)
         
         self.st = []
         self.tc_dict = []
         self.pnvs = []
+        self.spont_level_pnv = spont_level_pnv
         self.max_mean_response_indexes = []
+
+        self.caption = """
+                       Each column contains a tuning curve plot.
+                       """
+
         assert queries.ads_with_equal_stimulus_type(datastore)
         assert len(self.parameters.neurons) > 0 , "ERROR, empty list of neurons specified"
         #if self.parameters.mean:
-        #    assert self.parameters.centered , "Average tuning curve can be plotted only if the tuning curves are centerd"
+        #   assert self.parameters.centered , "Average tuning curve can be plotted only if the tuning curves are centerd"
+        
+        assert not (centering_pnv!=None and self.parameters.centered==False) , "Supplied centering_pnv but did not set centered to True."
         
         dsvs = queries.partition_analysis_results_by_parameters_query(self.datastore,parameter_list=['value_name'],excpt=True)
+
         for dsv in dsvs:
             dsv = queries.param_filter_query(dsv,identifier='PerNeuronValue',sheet_name=self.parameters.sheet_name)
             assert matching_parametrized_object_params(dsv.get_analysis_result(), params=['value_name'])
@@ -258,12 +284,15 @@ class PlotTuningCurve(Plotting):
             # get stimuli
             st = [MozaikParametrized.idd(s.stimulus_id) for s in self.pnvs[-1]]
             self.st.append(st)
-            
             dic = colapse_to_dictionary([z.get_value_by_id(self.parameters.neurons) for z in self.pnvs[-1]],st,self.parameters.parameter_name)
+            
             #sort the entries in dict according to the parameter parameter_name values 
             for k in  dic:
                 (b, a) = dic[k]
-                # logger.warning(str(k))
+
+                if self.pnvs[-1][0].value_units == mozaik.tools.units.uS:
+                   a = [[d * 1000.0 for d in c] for c in a]
+                
                 par, val = zip(
                              *sorted(
                                 zip(b,
@@ -276,11 +305,19 @@ class PlotTuningCurve(Plotting):
                 dic[k] = (par,numpy.array(val))
 
             self.tc_dict.append(dic)
+            
+            if self.parameters.centered and centering_pnv==None:
+               # if centering_pnv was not supplied we are centering on maximum values 
+               # lets find the highest average value for the neuron
+               self.max_mean_response_indexes.append(numpy.argmax(numpy.sum([a[1] for a in dic.values()],axis=0),axis=0))
 
-            if self.parameters.centered:
-                self.max_mean_response_indexes.append(numpy.argmax(sum([a[1] for a in dic.values()]),axis=0))
-                # lets find the highest average value for the neuron
-        
+            elif self.parameters.centered and centering_pnv!=None:
+               # if centering_pnv was supplied we are centering on maximum values  
+               period = st[0].getParams()[self.parameters.parameter_name].period
+               assert period != None, "ERROR: You asked for centering of tuning curves even though the domain over which it is measured is not periodic." 
+               centers = centering_pnv.get_value_by_id(self.parameters.neurons)
+               self.max_mean_response_indexes.append(numpy.array([numpy.argmin(circular_dist(par,centers[i],period)) for i in xrange(0,len(centers))]))
+
         if self.parameters.pool:
            assert all([p[0].value_units == self.pnvs[0][0].value_units for p in self.pnvs]), "You asked to pool tuning curves across different value_names, but the datastore contains PerNeuronValue datastructures with different units"
             
@@ -296,6 +333,7 @@ class PlotTuningCurve(Plotting):
         xs = []
         labels=[]
         ys = []
+        errors = [] 
         
         po = None if not self.parameters.polar else {'projection':'polar'}
         
@@ -303,12 +341,15 @@ class PlotTuningCurve(Plotting):
             gs = gridspec.GridSpecFromSubplotSpec(len(self.st), 1, subplot_spec=gs)
         
         for i,(dic, st, pnv) in enumerate(zip(self.tc_dict,self.st,self.pnvs)):
+            
             if not self.parameters.pool:
                xs = [] 
                ys = []
                labels = []
+               errors = []
                             
-            period = st[0].params()[self.parameters.parameter_name].period
+            period = st[0].getParams()[self.parameters.parameter_name].period
+            
             if self.parameters.centered:        
                assert period != None, "ERROR: You asked for centering of tuning curves even though the domain over which it is measured is not periodic." 
             
@@ -317,74 +358,128 @@ class PlotTuningCurve(Plotting):
                 
             for k in sorted(dic.keys()):    
                 (par, val) = dic[k]
+                error = None
                 if self.parameters.mean:
-                    v = 0
+                    v = []
                     for j in xrange(0,len(self.parameters.neurons)):
                         if self.parameters.centered:
                             vv,p = self.center_tc(val[:,j],par,period,self.max_mean_response_indexes[i][j])
                         else:
                             vv = val[:,j]
                             p = par
-                        v = v + vv
-                    val = v / len(self.parameters.neurons) # DG Reminder for errorbars
+                        #v = v + vv
+                        v.append(vv)
+                    error = numpy.std(v,axis=0) / numpy.sqrt(len(self.parameters.neurons))  
+                    val = numpy.mean(v,axis=0)    
+                    #val = v / len(self.parameters.neurons)
                     par = p
                 elif self.parameters.centered:
                     val,par = self.center_tc(val[:,idx],par,period,self.max_mean_response_indexes[i][idx])
                 else:
                     val = val[:,idx]
                     
-                if period != None:
-                    par = list(par)
-                    val = list(val)
-                    par.append(par[0] + period)
-                    val.append(val[0])
-
-                if self.parameters.polar:
-                   # we have to map the interval (0,period)  to (0,2*pi)
-                   par = [p/period*2*numpy.pi for p in par]
+                par,val = zip(*sorted(zip(numpy.array(par),val)))
 
                 # if we have a period of pi or 2*pi
-                if period==pi and self.parameters.centered==False:
+                if period != None and numpy.isclose(period,pi) and self.parameters.centered==False:
                    par = [(p-pi if p > pi/2 else p) for p in par]
                    par,val = zip(*sorted(zip(numpy.array(par),val)))
                    par = list(par)
                    val = list(val)
                    par.insert(0,-pi/2)
                    val.insert(0,val[-1])
-                   
-                if period==2*pi and self.parameters.centered==False:
+                   if error != None:
+                        error = list(error)
+                        error.insert(0,error[-1])
+                elif period != None and numpy.isclose(period,2*pi) and self.parameters.centered==False:
                    par = [(p-2*pi if p > pi/2 else p) for p in par]
                    par,val = zip(*sorted(zip(numpy.array(par),val)))
                    par = list(par)
                    val = list(val)
                    par.insert(0,-pi)
                    val.insert(0,val[-1])
+                   if error != None:
+                        error = list(error)
+                        error.insert(0,error[-1])
+                elif self.parameters.centered==True:                        
+                     par = list(par)
+                     val = list(val)
+                     if numpy.isclose(par[0],-period/2):
+                        par.append(period/2)
+                        val.append(val[0])
+                        if isinstance(error,numpy.ndarray) or isinstance(error,list):
+                            error = list(error)
+                            error.append(error[0])
+
+                     if numpy.isclose(par[-1],period/2):
+                        par.insert(0,-period/2)
+                        val.insert(0,val[-1])
+                        if isinstance(error,numpy.ndarray) or isinstance(error,list):
+                            error = list(error)
+                            error.append(error[0])
+
+
+                elif period != None:
+                    par = list(par)
+                    val = list(val)
+                    par.append(par[0] + period)
+                    val.append(val[0])
+                    if isinstance(error,numpy.ndarray) or isinstance(error,list):
+                        error = list(error)
+                        error.append(error[0])
+                   
+
+                if self.parameters.polar:
+                   # we have to map the interval (0,period)  to (0,2*pi)
+                   par = [p/period*2*numpy.pi for p in par]
                     
 
                 xs.append(numpy.array(par))
                 ys.append(numpy.array(val))
+                errors.append(numpy.array(error))
                 
                 l = ""
                 
                 if self.parameters.pool:
-                   l = pnv[0].value_name + " "
-                
+                   if len(varying_parameters([MozaikParametrized.idd(e) for e in dic.keys()]))>0:
+                        l = pnv[0].value_name + " "
+                   else:
+                        l = pnv[0].value_name
+
+                                
                 for p in varying_parameters([MozaikParametrized.idd(e) for e in dic.keys()]):
-                    l = l + str(p) + " : " + str(getattr(MozaikParametrized.idd(k),p))
+                    l = l + str(p) + " : " + str(MozaikParametrized.idd(k).getParamValue(p))
                 labels.append(l)
 
+            # add the spontaneous level
+            if self.spont_level_pnv != None:
+                if not self.parameters.mean:
+                   sp_level = self.spont_level_pnv.get_value_by_id(self.parameters.neurons)[idx]
+                else:
+                   sp_level = numpy.mean(self.spont_level_pnv.get_value_by_id(self.parameters.neurons))
+                xs.insert(0,numpy.array([min(xs[-1]),max(xs[-1])]))
+                ys.insert(0,numpy.array([sp_level,sp_level]))
+                labels.insert(0,'spont.')
+                errors.insert(0,numpy.array([0,0]))
+                
             if not self.parameters.pool:
+                if not self.parameters.mean:
+                    errors = None 
                 params = self.create_params(pnv[0].value_name,pnv[0].value_units,i==0,i==(len(self.pnvs)-1),period,self.parameters.neurons[idx],len(xs),self.parameters.polar,labels,idx)
-                plots.append(("TuningCurve_" + pnv[0].value_name,StandardStyleLinePlot(xs, ys,subplot_kw=po),gs[i],params))   
+
+                plots.append(("TuningCurve_" + pnv[0].value_name,StandardStyleLinePlot(xs, ys,error=errors,subplot_kw=po),gs[i],params))   
+        
+        
+        
+        if not self.parameters.mean:
+           errors = None 
 
         if self.parameters.pool:
            params = self.create_params('mix',self.pnvs[0][0].value_units,True,True,period,self.parameters.neurons[idx],len(xs),self.parameters.polar,labels,idx)
            if not self.parameters.polar:
-              plots.append(("TuningCurve_Stacked",StandardStyleLinePlot(xs, ys),gs,params))
+              plots.append(("TuningCurve_Stacked",StandardStyleLinePlot(xs, ys,error=errors),gs,params))
            else:
-              plots.append(("TuningCurve_Stacked",StandardStyleLinePlot(xs, ys,subplot_kw=po),gs,params)) 
-              # if self.parameters.errorbars:
-              #   print "errorbars"
+              plots.append(("TuningCurve_Stacked",StandardStyleLinePlot(xs, ys,error=errors,subplot_kw=po),gs,params)) 
                 
         return plots
 
@@ -393,23 +488,27 @@ class PlotTuningCurve(Plotting):
             
             params["x_label"] = self.parameters.parameter_name
             if idx == 0:
-                params["y_label"] = value_name + '(' + units.dimensionality.latex + ')'
+                if units == mozaik.tools.units.uS:
+                    params["y_label"] = value_name + '(nS)'
+                else:
+                    params["y_label"] = value_name + '(' + units.dimensionality.latex + ')'
                 
             params['labels']=labels
             params['linewidth'] = 2
-            params['colors'] = [cm.jet(j/float(number_of_curves)) for j in xrange(0,number_of_curves)] 
+            #params['colors'] = [cm.jet(j/float(number_of_curves)) for j in xrange(0,number_of_curves)] 
             
             if top_row:
                 params["title"] =  'Neuron ID: %d' % neuron_id
             
+
             if not polar:
-                    if period == pi:
+                    if numpy.isclose(period,pi):
                         params["x_ticks"] = [-pi/2, 0, pi/2]
                         params["x_lim"] = (-pi/2, pi/2)
                         params["x_tick_style"] = "Custom"
                         params["x_tick_labels"] = ["-$\\frac{\\pi}{2}$", "0", "$\\frac{\\pi}{2}$"]
                    
-                    if period == 2*pi:
+                    if numpy.isclose(period,2*pi):
                         params["x_ticks"] = [-pi, 0, pi]
                         params["x_lim"] = (-pi, pi)
                         params["x_tick_style"] = "Custom"
@@ -430,7 +529,7 @@ class PlotTuningCurve(Plotting):
             return params
             
     def center_tc(self,val,par,period,center_index):
-           # first lets make the maximum to be at zero                   
+           # first lets make the maximum to be at zero  
            q = center_index+len(val)/2 if center_index < len(val)/2 else center_index-len(val)/2
            z = par[center_index]
            c =  period/2.0
@@ -442,7 +541,6 @@ class PlotTuningCurve(Plotting):
                par[:-q] = par[q:].copy()[:]   
                val[-q:] = a
                par[-q:] = b
-           
            return val,par 
 
     
@@ -485,19 +583,21 @@ class RasterPlot(Plotting):
     def _ploter(self, dsv,gs):
         sp = [s.get_spiketrain(self.parameters.neurons) for s in sorted(dsv.get_segments(),key = lambda x : MozaikParametrized.idd(x.annotations['stimulus']).trial)]             
         
-        x_ticks = [0.0,float(sp[0][0].t_stop/2), float(sp[0][0].t_stop)]
+        num_trials = numpy.max([MozaikParametrized.idd(s.annotations['stimulus']).trial for s in dsv.get_segments()])+1
+
+        x_ticks = [0.0,float(sp[0][0].t_stop.rescale(pq.s)/2), float(sp[0][0].t_stop.rescale(pq.s))]
         
         if self.parameters.spontaneous:
            spont_sp = [s.get_spiketrain(self.parameters.neurons) for s in sorted(dsv.get_segments(null=True),key = lambda x : MozaikParametrized.idd(x.annotations['stimulus']).trial)]             
            sp = [RasterPlot.concat_spiketrains(sp1,sp2) for sp1,sp2 in zip(spont_sp,sp)]
-           x_ticks = [float(spont_sp[0][0].t_start),0.0,float(sp[0][0].t_stop/2), float(sp[0][0].t_stop)]
+           x_ticks = [float(spont_sp[0][0].t_start.rescale(pq.s)),0.0,float(sp[0][0].t_stop.rescale(pq.s)/2), float(sp[0][0].t_stop.rescale(pq.s))]
 
         d = {} 
         if self.parameters.trial_averaged_histogram:
             gs = gridspec.GridSpecFromSubplotSpec(4, 1, subplot_spec=gs)
             # first the raster
-            return [ ('SpikeRasterPlot',SpikeRasterPlot([sp]),gs[:3, 0],{'x_axis': False , 'x_label' :  None,"x_ticks": x_ticks}),
-                     ('SpikeHistogramPlot',SpikeHistogramPlot([sp]),gs[3, 0],{"x_ticks": x_ticks})]
+            return [ ('SpikeRasterPlot',SpikeRasterPlot([sp]),gs[:3,0],{'x_axis': False , 'x_label' :  None}),
+                     ('SpikeHistogramPlot',SpikeHistogramPlot([sp],num_trials),gs[3,0],{"x_ticks": x_ticks})]
         else:
             return [('SpikeRasterPlot',SpikeRasterPlot([sp]),gs,{"x_ticks": x_ticks})]
 
@@ -579,8 +679,8 @@ class VmPlot(Plotting):
                     "x_lim" : (t_start, t_stop), 
                     "y_lim" : (-80.0, -40.0), 
                     "x_ticks": x_ticks,
-                    "x_label": 'time(' + vms[0].t_stop.dimensionality.latex + ')',
-                    "y_label": 'Vm(' + vms[0].dimensionality.latex + ')'
+                    "x_label": 'time (' + vms[0].t_stop.dimensionality.latex + ')',
+                    "y_label": 'Vm (' + vms[0].dimensionality.latex + ')'
                })]
 
 
@@ -703,6 +803,7 @@ class OverviewPlot(Plotting):
         params['x_label']  = None
         params['x_tick_labels'] = None
         params['x_tick_style'] ='Custom'
+        params['y_label'] = 'trial'
         
         d.extend([ ("Spike_plot",RasterPlot(dsv,
                    ParameterSet({'sheet_name': self.parameters.sheet_name,
@@ -764,7 +865,7 @@ class AnalogSignalListPlot(Plotting):
        
         for idd in self.parameters.neurons:
             a = self.analog_signal_list.get_asl_by_id(idd)
-            times = numpy.linspace(a.t_start, a.t_stop, len(a))
+            times = numpy.linspace(a.t_start.magnitude, a.t_stop.magnitude, len(a))
             xs.append(times)
             ys.append(a)
         
@@ -937,7 +1038,7 @@ class RetinalInputMovie(Plotting):
         stimulus = MozaikParametrized.idd(self.st[idx])
         title = ''
         title = title + stimulus.name + '\n'
-        for pn, pv in stimulus.get_param_values():
+        for pn, pv in stimulus.getParams().items():
                 title = title + pn + ' : ' + str(pv) + '\n'
         return [('PixelMovie',PixelMovie(self.retinal_input[idx],MozaikParametrized.idd(self.st[idx]).background_luminance),gs,{'x_axis':False, 'y_axis':False, "title" : title})]
 
@@ -954,7 +1055,7 @@ class ActivityMovie(Plotting):
     Other parameters
     ----------------
     
-    bin_width : float
+    bin_width : float (ms)
               In ms the width of the bins into which to sample spikes.
     
     scatter :  bool   
@@ -965,15 +1066,24 @@ class ActivityMovie(Plotting):
                
     sheet_name: str
               The sheet for which to display the actvity movie.
-    
-    """
+
+    exp_time_constant: float (ms)
+              Spiking can be very irregular and bursty which makes it difficult to visualize. 
+              This parameter is the time-constant of the exponential with which the convolve psth, 0 means no convolution.
+    """     
     
     required_parameters = ParameterSet({
           'bin_width': float,  # in ms the width of the bins into which to sample spikes
           'scatter':  bool,   # whether to plot neurons activity into a scatter plot (if True) or as an interpolated pixel image
           'resolution': int,  # the number of pixels into which the activity will be interpolated in case scatter = False
           'sheet_name': str,  # the sheet for which to display the actvity movie
+          'exp_time_constant' : float, # the time-constant of the exponential with which the convolve psth, 0 means no convolution
     })
+
+    def __init__(self, datastore, parameters, plot_file_name=None,fig_param=None,frame_duration=0,spont_level_pnv=None):
+        Plotting.__init__(self, datastore, parameters, plot_file_name, fig_param,frame_duration)
+        self.spont_level_pnv = spont_level_pnv
+
 
     def subplot(self, subplotspec):
         dsv = queries.param_filter_query(self.datastore,sheet_name=self.parameters.sheet_name)
@@ -986,20 +1096,38 @@ class ActivityMovie(Plotting):
         stop = sp[0][0].t_stop.magnitude
         units = sp[0][0].t_start.units
         bw = self.parameters.bin_width * pq.ms
-        bw = bw.rescale(units).magnitude
-        bins = numpy.arange(start, stop, bw)
+        bw = bw.rescale(units)
+        bins = numpy.arange(start, stop, bw.magnitude)
         h = []
+
+        if self.parameters.exp_time_constant != 0:
+          etc = self.parameters.exp_time_constant*pq.ms
+          etc = etc.rescale(units).magnitude
+          exp_kernel = numpy.flip(numpy.exp(-(bins[:numpy.int(numpy.floor(3*etc/bw))]-start)/etc),axis=0);
+
         for spike_trains in sp:
             hh = []
             for st in spike_trains:
-                hh.append(numpy.histogram(st.magnitude, bins, (start, stop))[0])
+                tmp = numpy.histogram(st.magnitude, bins, (start, stop))[0]/(bw.rescale(pq.s).magnitude)
+                if self.parameters.exp_time_constant != 0:
+                  tmp = numpy.convolve(tmp,exp_kernel,mode='valid')
+                hh.append(tmp)
+
                 #lets make activity of each neuron relative to it's maximum activity
             h.append(numpy.array(hh))
-        
+
         h = numpy.mean(h, axis=0)
-        
+
+        ids = dsv.get_segments()[0].get_stored_spike_train_ids()
+        if self.spont_level_pnv != None:
+           sl = numpy.array(self.spont_level_pnv.get_value_by_id(ids))
+           h = h - 5*sl[:,numpy.newaxis]
+        h[h < 0]=0   
+        #h[h < 0.2*numpy.mean(numpy.mean(h))]=0
+
         #lets normalize against the maximum response for given neuron
         
+
         pos = dsv.get_neuron_postions()[self.parameters.sheet_name]
 
         posx = pos[0,self.datastore.get_sheet_indexes(self.parameters.sheet_name,dsv.get_segments()[0].get_stored_spike_train_ids())]
@@ -1070,17 +1198,15 @@ class PerNeuronValuePlot(Plotting):
         return ADSGridPlot(self.dsv,function=self._ploter,x_axis_parameter='value_name',y_axis_parameter='sheet_name').make_grid_plot(subplotspec)
 
     def _ploter(self, dsv, gs):
-         z = dsv.get_analysis_result(identifier='PerNeuronValue')
-         if len(z) > 1:
-            logger.error('Warning sheet name and value name does\'t seem to uniquely identify and PerNeuronValue ADS in the datastore, we cannot plot more than one!')
-        
-         pnv = z[0]
-         sheet_name = pnv.sheet_name
-         pos = self.dsv.get_neuron_postions()[sheet_name]            
+         pnvs = dsv.get_analysis_result(identifier='PerNeuronValue')            
+         
         
          if self.parameters.cortical_view:
-            posx = pos[0,self.datastore.get_sheet_indexes(sheet_name,pnv.ids)]
-            posy = pos[1,self.datastore.get_sheet_indexes(sheet_name,pnv.ids)]
+            assert len(pnvs) <= 1, logger.error("We can only display single stimulus parametrization in cortical view, but you have suplied multiple in datastore.")
+            pnv = pnvs[0]
+            pos = self.dsv.get_neuron_postions()[pnv.sheet_name]                            
+            posx = pos[0,self.datastore.get_sheet_indexes(pnv.sheet_name,pnv.ids)]
+            posy = pos[1,self.datastore.get_sheet_indexes(pnv.sheet_name,pnv.ids)]
             values = pnv.values
             if pnv.period != None:
                 periodic = True
@@ -1096,21 +1222,29 @@ class PerNeuronValuePlot(Plotting):
 
             return [("ScatterPlot",ScatterPlot(posx, posy, values, periodic=periodic,period=period),gs,params)]
          else:
+            assert queries.ads_with_equal_stimulus_type(dsv) , logger.error('Warning sheet name and value name does\'t seem to uniquely identify set of PerNeuronValue ADS with the same stimulus type')
             params = {}
             params["y_label"] = '# neurons'
-            return [("HistogramPlot",HistogramPlot([pnv.values]),gs,params)]
+
+            varying_stim_parameters = sorted(varying_parameters([MozaikParametrized.idd(pnv.stimulus_id) for pnv in pnvs]))        
+            a = sorted([(','.join([p + ' : ' + str(MozaikParametrized.idd(pnv.stimulus_id).getParamValue(p)) for p in varying_stim_parameters]),pnv) for pnv in pnvs],key=lambda x: x[0])
+            
+            if len(a) > 1:
+                return [("HistogramPlot",HistogramPlot([z[1].values for z in a],labels=[z[0] for z in a]),gs,params)]
+            else:
+                return [("HistogramPlot",HistogramPlot([pnvs[0].values]),gs,params)]
 
 
 
 class PerNeuronValueScatterPlot(Plotting):
     """
-    Takes each pair of PerNeuronValue ADSs in the datastore that have the same units and plots a scatter plot of each such pair.
-    
+    Takes each pair of PerNeuronValue ADSs in the datastore and plots a scatter plot of each such pair.
     It defines line of plots named: 'ScatterPlot.Plot0' ... 'ScatterPlot.PlotN
     """
     
     required_parameters = ParameterSet({
           'only_matching_units':bool,  # only plot combinations of PNVs that have the same value units.
+          'ignore_nan' : bool, # if True NaNs will be removed from the data. In general if there are NaN in the data and this is False it will not be displayed correctly.
     })
     
     
@@ -1151,12 +1285,12 @@ class PerNeuronValueScatterPlot(Plotting):
         y_label = pair[1].value_name + '(' + pair[1].value_units.dimensionality.latex + ')'
 
         for p in p1:
-            x_label += '\n' + str(p) + " = " + str(getattr(pair[0],p))
-            y_label += '\n' + str(p) + " = " + str(getattr(pair[1],p))
+            x_label += '\n' + str(p) + " = " + str(pair[0].getParamValue(p))
+            y_label += '\n' + str(p) + " = " + str(pair[1].getParamValue(p))
         
         for p in p2:
-            x_label += '\n' + str(p) + " = " + str(getattr(MozaikParametrized.idd(pair[0].stimulus_id),p))
-            y_label += '\n' + str(p) + " = " + str(getattr(MozaikParametrized.idd(pair[1].stimulus_id),p))
+            x_label += '\n' + str(p) + " = " + str(MozaikParametrized.idd(pair[0].stimulus_id).getParamValue(p))
+            y_label += '\n' + str(p) + " = " + str(MozaikParametrized.idd(pair[1].stimulus_id).getParamValue(p))
         
         params = {}
         params["x_label"] = x_label
@@ -1166,9 +1300,13 @@ class PerNeuronValueScatterPlot(Plotting):
            params["equal_aspect_ratio"] = False
         
         ids = list(set(pair[0].ids) & set(pair[1].ids))
-        return [("ScatterPlot",ScatterPlot(pair[0].get_value_by_id(ids), pair[1].get_value_by_id(ids)),gs,params)]
-        
-
+        x = pair[0].get_value_by_id(ids)
+        y = pair[1].get_value_by_id(ids)
+        if self.parameters.ignore_nan:
+            idxs = numpy.logical_not(numpy.logical_or(numpy.isnan(numpy.array(x)),numpy.isnan(numpy.array(y))))
+            x = numpy.array(x)[idxs]
+            y = numpy.array(y)[idxs]
+        return [("ScatterPlot",ScatterPlot(x,y),gs,params)]
 
 class ConnectivityPlot(Plotting):
     """
@@ -1282,7 +1420,10 @@ class ConnectivityPlot(Plotting):
             index = self.datastore.get_sheet_indexes(self.connections[idx].target_name,self.parameters.neuron)
             ix = numpy.flatnonzero(numpy.array(self.connections[idx].weights)[:,1]==index)
             ix = numpy.array(self.connections[idx].weights)[:,0][ix].astype(int)
-            
+        
+        assert all(numpy.array(self.connections[idx].weights)[:,0] == numpy.array(self.connections[idx].delays)[:,0])
+        assert all(numpy.array(self.connections[idx].weights)[:,1] == numpy.array(self.connections[idx].delays)[:,1])
+        
         sx = self.connecting_neurons_positions[idx][0][ix]
         sy = self.connecting_neurons_positions[idx][1][ix]
         w = numpy.array(self.connections[idx].weights)[ix,2]
@@ -1324,25 +1465,25 @@ class ConnectivityPlot(Plotting):
             (angle, mag) = circ_mean(numpy.array(pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix))),
                                      weights=numpy.abs(w),
                                      high=pnv.period)
-            params["title"] = str(self.connections[idx].proj_name) + "\n Mean: " + str(angle)
+            params["title"] = str(self.connections[idx].proj_name) + "\n Mean: " + str(angle) + '\nNum conn/mean weight/total weight:' +str(len(w)) + '/' + str(numpy.mean(w)) + '/' + str(numpy.sum(w)) + '\n' + str(w[:10 ])
             params["colorbar_label"] =  pnv.value_name
             params["colorbar"] = True
 
             if self.connections[idx].source_name == self.connections[idx].target_name:
                 params["line"] = False
-                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w,colors=pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix)),period=pnv.period),gs,params)]
+                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, numpy.abs(w),colors=pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix)),period=pnv.period),gs,params)]
             else:
                 params["line"] = True
-                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w,colors=pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix)),period=pnv.period),gs,params)]
+                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, numpy.min(sx)*1.2, numpy.min(sy)*1.2, numpy.abs(w),colors=pnv.get_value_by_id(self.datastore.get_sheet_ids(pnv.sheet_name,ix)),period=pnv.period),gs,params)]
         else:
             params["title"] = 'Weights: '+ self.connections[idx].proj_name +  ' ' + str(len(sx))
             
             if self.connections[idx].source_name == self.connections[idx].target_name:
                 params["line"] = False
-                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w),gs,params)]
+                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, numpy.abs(w)),gs,params)]
             else:
                 params["line"] = True
-                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, tx, ty, w),gs,params)]
+                plots = [("ConnectionsPlot",ConnectionPlot(sx, sy, numpy.min(sx)*1.2, numpy.min(sy)*1.2,numpy.abs(w)),gs,params)]
 
 
         # Plot the delays
@@ -1350,8 +1491,8 @@ class ConnectivityPlot(Plotting):
         params = {}
         params["x_lim"] = (-xs/2.0,xs/2.0)
         params["y_lim"] = (-ys/2.0,ys/2.0)
-        if idx == self.length-1:
-           params["colorbar"] = True
+        
+        params["colorbar"] = True
         
         
         params["title"]  = 'Delays: '+ self.connections[idx].proj_name
@@ -1405,3 +1546,299 @@ class PerNeuronAnalogSignalScatterPlot(Plotting):
         
         return [('AnalogSignalScatterPlot',ScatterPlot(a.magnitude,b.magnitude),gs,{'x_label': self.asls[0].y_axis_name, 'y_label': self.asls[1].y_axis_name, "title" : "Neuron id: %d" % self.parameters.neurons[idx]})]
 
+
+class CorticalColumnRasterPlot(Plotting):
+    """ 
+    It plots raster plots of spikes stored in the recordings.
+    It assumes a datastore with recordings to a set of stimuli in different sheets. 
+    It will plot a line of raster plots, one per each stimulus, showing a 'cortical column view' of the spike rasters across all sheets present in the data_store.
+    All trials of the same stimulus are superimposed over each other.
+    
+    Defines 'CorticalColumnRasterPlot.Plot0' ... 'CorticalColumnRasterPlot.PlotN'
+    
+    Other parameters
+    ----------------
+    spontaneous : bool
+                Whether to also show the spontaneous activity the preceded the stimulus.
+
+    sheet_names : list
+                the list and order in which the sheets should be plotted
+    
+    labels : list
+                the list and order in which the sheets should be plotted
+    
+    colors : list 
+           the colors to give to the spikes in the sheets. 
+           
+           
+    NOTES
+    -----
+    
+    spontaneous doesn't work yet
+    """
+    
+    required_parameters = ParameterSet({
+        'spontaneous' : bool, # whether to also show the spontaneous activity the preceded the stimulus     
+        'sheet_names' : list, # the list and order in which the sheets should be plotted, empty list means all sheets in datastore will be taken
+        'labels' : list, # the labels to give to the sheets in the plot, empty list means the names of the sheets will be used as labels
+        'colors' : list, # the colors to give to the spikes in the sheets, empty list means all spikes will be given black color
+        'neurons' : list # list of list of neuron ids, one list per each sheet, which to display. If empty all recorded neurons are displayed
+    })
+
+    def subplot(self, subplotspec):
+        
+        if self.parameters.sheet_names == []:
+            self.sheet_names = dsv.sheets()
+        else:
+            self.sheet_names = self.parameters.sheet_names
+        
+        if self.parameters.labels == []:
+            self.labels = self.sheet_names
+        else:
+            self.labels = self.parameters.labels
+      
+        if self.parameters.colors == []:
+            self.colors =  ['#000000' for i in self.sheets]
+        else:
+            self.colors = self.parameters.colors
+            
+        assert len(self.sheet_names) == len(self.labels) == len(self.colors) , "Parameter <sheet_names> , <labels> and <colors> have to have the same length or be empty lists."
+        
+        if len(self.parameters.neurons) != 0:
+                assert len(self.sheet_names) == len(self.parameters.neurons), "Parameter <sheet_names> , <neurons> have to have the same length"
+        
+        
+        return PerStimulusPlot(self.datastore,single_trial=True, function=self._ploter).make_line_plot(subplotspec)
+
+    def _ploter(self, dsv,gs):
+        
+        sp = []
+        for i,sn in enumerate(self.sheet_names):
+            a = queries.param_filter_query(dsv,sheet_name=sn).get_segments()
+            assert len(a) == 1
+            if len(self.parameters.neurons) != 0:
+                sp.append(a[0].get_spiketrain(self.parameters.neurons[i]))
+            else:
+                sp.append(a[0].get_spiketrains())
+        
+        #if self.parameters.spontaneous:
+        #   spont_sp = [s.get_spiketrain(self.parameters.neurons) for s in sorted(dsv.get_segments(null=True),key = lambda x : MozaikParametrized.idd(x.annotations['stimulus']).trial)]             
+        #   sp = [RasterPlot.concat_spiketrains(sp1,sp2) for sp1,sp2 in zip(spont_sp,sp)]
+        #   x_ticks = [float(spont_sp[0][0].t_start),0.0,float(sp[0][0].t_stop/2), float(sp[0][0].t_stop)]
+        return [('CorticalColumnRasterPlot',CorticalColumnSpikeRasterPlot(sp),gs,{"labels": self.labels, "colors" : self.colors})]
+
+
+class PlotTemporalTuningCurve(Plotting):
+    """
+    Plots tuning curves, one plot in line per each neuron. This plotting function assumes a set of AnalogSignalList 
+    ADSs in the datastore associated with certain stimulus type. It will plot
+    the values stored in these  AnalogSignalList instances (corresponding to neurons in `neurons`) across the 
+    varying parameter `parameter_name` of thier associated stimuli. 
+
+    Parameters
+    ----------
+    centering_pnv : PerNeuronValue 
+                  If not none, centered has to be true. The centering_pnv has to be a PerNeuronValue containing values in the domain corresponding to 
+                  parameter `parameter_name`. The tuning curves of each neuron will be cenetered around the value in this pnv corresponding to the given neuron.
+                  This will be applied also if mean is True (so the tuning curves will be centered based on the values in centering_pnv and than averaged).
+    
+    Other parameters
+    ----------------
+    neurons : list
+            List of neuron ids for which to plot the tuning curves.
+            
+    sheet_name : str
+            From which layer to plot the tuning curves.
+               
+    parameter_name : str
+                   The parameter_name through which to plot the tuning curve.
+
+    mean : bool 
+         If True it will plot the mean tuning curve over all neurons (in case centered=True it will first center the TCs before computing the mean)
+    
+            
+    Defines 'TuningCurve_' + value_name +  '.Plot0' ... 'TuningCurve_' + value_name +  '.Plotn'
+    where n goes through number of neurons, and value_name creates one row for each value_name found in the different PerNeuron found
+    """
+
+    required_parameters = ParameterSet({
+      'neurons':  list,  # which neurons to plot
+      'sheet_name': str,  # from which layer to plot the tuning curves
+      'parameter_name': str,  # the parameter_name through which to plot the tuning curve
+      'mean' : bool, # if True it will plot the mean tuning curve over the neurons (in case centered=True it will first center the TCs before computing the mean)
+    })
+
+    def __init__(self, datastore, parameters, plot_file_name=None,fig_param=None,frame_duration=0,centering_pnv=None):
+        Plotting.__init__(self, datastore, parameters, plot_file_name, fig_param,frame_duration)
+        
+        self.st = []
+        self.tc_dict = []
+        self.asls = []
+        self.center_response_indexes = None
+        assert queries.ads_with_equal_stimulus_type(datastore)
+        assert len(self.parameters.neurons) > 0 , "ERROR, empty list of neurons specified"
+        
+        dsvs = queries.partition_analysis_results_by_parameters_query(self.datastore,parameter_list=['y_axis_name'],excpt=True)
+        for dsv in dsvs:
+            dsv = queries.param_filter_query(dsv,identifier='AnalogSignalList',sheet_name=self.parameters.sheet_name)
+            assert matching_parametrized_object_params(dsv.get_analysis_result(), params=['y_axis_name'])
+            self.asls.append(dsv.get_analysis_result())
+            # get stimuli
+            st = [MozaikParametrized.idd(s.stimulus_id) for s in self.asls[-1]]
+            self.st.append(st)
+            dic = colapse_to_dictionary([z.get_asl_by_id(self.parameters.neurons) for z in self.asls[-1]],st,self.parameters.parameter_name)
+
+            #sort the entries in dict according to the parameter parameter_name values 
+            for k in  dic:
+                (b, a) = dic[k]
+                if self.asls[-1][0].y_axis_units == mozaik.tools.units.uS:
+                   a = [[d * 1000.0 for d in c] for c in a]
+                
+                par, val = zip(
+                             *sorted(
+                                zip(b,
+                                    numpy.array(a))))
+                dic[k] = (par,numpy.array(val))
+            self.tc_dict.append(dic)
+            
+        if centering_pnv!=None:
+               # if centering_pnv was supplied we are centering on maximum values  
+               period = st[0].getParams()[self.parameters.parameter_name].period
+               assert period != None, "ERROR: You asked for centering of tuning curves even though the domain over which it is measured is not periodic." 
+               centers = centering_pnv.get_value_by_id(self.parameters.neurons)
+               self.center_response_indexes.append(numpy.array([numpy.argmin(circular_dist(par,centers[i],period)) for i in xrange(0,len(centers))]))
+            
+    def subplot(self, subplotspec):
+        if self.parameters.mean:
+            return LinePlot(function=self._ploter, length=1).make_line_plot(subplotspec)
+        else:
+            return LinePlot(function=self._ploter, length=len(self.parameters.neurons)).make_line_plot(subplotspec)
+
+    def _ploter(self, idx, gs):
+        plots  = []
+        xs = []
+        ys = []
+        errors = [] 
+        
+        gs = gridspec.GridSpecFromSubplotSpec(len(self.st), 1, subplot_spec=gs)
+        
+        for i,(dic, st, asl) in enumerate(zip(self.tc_dict,self.st,self.asls)):
+            xs = [] 
+            ys = []
+            period = st[0].getParams()[self.parameters.parameter_name].period
+            for k in sorted(dic.keys()):    
+                (par, val) = dic[k]
+                error = None
+                if self.parameters.mean:
+                    v = []
+                    for j in xrange(0,len(self.parameters.neurons)):
+                        if self.centered_response_indexes != None:
+                            vv,p = self.center_tc(val[:,j],par,period,self.centered_response_indexes[i][j])
+                        else:
+                            vv = val[:,j]
+                            p = par
+                        v.append(vv)
+                    error = numpy.std(v,axis=0) / numpy.sqrt(len(self.parameters.neurons))  
+                    val = numpy.mean(v,axis=0)    
+                    par = p
+                else:
+                    val = val[:,idx]
+
+                par,val = zip(*sorted(zip(numpy.array(par),val)))
+
+                # if we have a period of pi or 2*pi
+                if period==pi and self.centered_response_indexes==None:
+                   par = [(p-pi if p > pi/2 else p) for p in par]
+                   par,val = zip(*sorted(zip(numpy.array(par),val)))
+                   par = list(par)
+                   val = list(val)
+                   par.insert(0,-pi/2)
+                   val.insert(0,val[-1])
+                   if error != None:
+                        error = list(error)
+                        error.insert(0,error[-1])
+                elif period==2*pi and self.centered_response_indexes==None:
+                   par = [(p-2*pi if p > pi/2 else p) for p in par]
+                   par,val = zip(*sorted(zip(numpy.array(par),val)))
+                   par = list(par)
+                   val = list(val)
+                   par.insert(0,-pi)
+                   val.insert(0,val[-1])
+                   if error != None:
+                        error = list(error)
+                        error.insert(0,error[-1])
+                elif period != None:
+                    par = list(par)
+                    val = list(val)
+                    par.append(par[0] + period)
+                    val.append(val[0])
+                    if error != None:
+                        error = list(error)
+                        error.append(error[0])
+                   
+                xs.append(numpy.squeeze(numpy.array(par)))
+                ys.append(numpy.squeeze(numpy.array(val)))
+            
+            if not self.parameters.mean:
+                errors = None 
+            params = self.create_params(asl[0].y_axis_name,asl[0].y_axis_units,i==0,i==(len(self.asls)-1),period,self.parameters.neurons[idx],numpy.squeeze(xs),idx)
+            plots.append(("TuningCurve_" + asl[0].y_axis_name,OrderedAnalogSignalListPlot(numpy.squeeze(ys), numpy.squeeze(xs)),gs[i],params))   
+        
+        return plots
+
+    def create_params(self,y_axis_name,units,top_row,bottom_row,period,neuron_id,signal_labels,idx):
+            params={}
+            
+            if idx==0:
+                params["y_label"] = self.parameters.parameter_name
+            
+            params["colorbar"] = True
+            params["x_label"] = "time (ms)"
+            
+            if units == mozaik.tools.units.uS:
+                params["colorbar_label"] = y_axis_name + ' (nS)'
+            else:
+                params["colorbar_label"] = y_axis_name + ' (' + units.dimensionality.latex + ')'
+
+            if top_row:
+                params["title"] =  'Neuron ID: %d' % neuron_id
+            
+            if period == pi:
+                params["y_ticks"] = [-pi/2, 0, pi/2]
+                params["y_lim"] = (--pi/2, pi/2)
+                params["y_tick_style"] = "Custom"
+                params["y_tick_labels"] = ["-$\\frac{\\pi}{2}$", "0", "$\\frac{\\pi}{2}$"]
+            elif period == 2*pi:
+                params["y_ticks"] = [-pi, 0, pi]
+                params["y_lim"] = (-pi, pi)
+                params["y_tick_style"] = "Custom"
+                params["y_tick_labels"] = ["-$\\pi$","0", "$\\pi$"]
+            else:
+                params["y_ticks"] = [0, len(signal_labels)-1]
+                #params["y_lim"] = (-pi, pi)
+                params["y_tick_style"] = "Custom"
+                params["y_tick_labels"] = [signal_labels[0],signal_labels[-1]]
+            
+            if not bottom_row:
+                params["x_axis"] = None
+
+            if not idx==0:
+                params["y_axis"] = None
+
+            return params
+            
+    def center_tc(self,val,par,period,center_index):
+           # first lets make the maximum to be at zero                   
+           q = center_index+len(val)/2 if center_index < len(val)/2 else center_index-len(val)/2
+           z = par[center_index]
+           c =  period/2.0
+           par = numpy.array([(p - z + c) % period for p in par])  - c
+           if q != 0:
+               a = val[:q].copy()[:] 
+               b = par[:q].copy()[:] 
+               val[:-q] = val[q:].copy()[:]   
+               par[:-q] = par[q:].copy()[:]   
+               val[-q:] = a
+               par[-q:] = b
+           
+           return val,par 

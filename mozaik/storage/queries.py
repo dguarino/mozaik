@@ -8,7 +8,9 @@ from mozaik.core import ParametrizedObject
 from parameters import ParameterSet
 from mozaik.tools.mozaik_parametrized import colapse,  MozaikParametrized, filter_query, matching_parametrized_object_params
 import numpy
+import mozaik
 
+logger = mozaik.getMozaikLogger()
 
 class Query(ParametrizedObject):
     """
@@ -94,8 +96,11 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
        else:
            seg_filtered = set([]) 
     else:
+        if len(kwargs) == 0:
            seg_filtered = set(dsv.block.segments)
-    
+        else:
+           seg_filtered = set([])  
+        
     ads_filtered= set(filter_query(dsv.analysis_results,**kwargs))
     
     if st_kwargs != {}:
@@ -281,7 +286,7 @@ def partition_analysis_results_by_parameters_query(dsv,parameter_list=None,excpt
         assert parameter_list != None , "parameter_list has to be given"
         if excpt:
             assert equal_ads_type(dsv), "If excpt==True you have to provide a dsv containing the same ADS type"
-            parameter_list = set(dsv.analysis_results[0].params().keys()) - (set(parameter_list) | set(['name']))
+            parameter_list = set(dsv.analysis_results[0].getParams().keys()) - (set(parameter_list) | set(['name']))
             
         values, st = colapse(dsv.analysis_results,dsv.analysis_results,parameter_list=parameter_list,allow_non_identical_objects=True)
         dsvs = []
@@ -351,10 +356,14 @@ def partition_analysis_results_by_stimulus_parameters_query(dsv,parameter_list=N
             
         st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results]
         assert parameter_list != None , "parameter_list has to be given"
+        assert type(parameter_list) == list , "parameter_list has to be list"
+        
         if excpt:
             assert matching_parametrized_object_params(st,params=['name']), "If excpt==True you have to provide a dsv containing the same ADS type"
-            parameter_list = set(st[0].params().keys()) - (set(parameter_list) | set(['name']))
-            
+            parameter_list = set(st[0].getParams().keys()) - (set(parameter_list) | set(['name']))
+        
+        
+        
         values, st = colapse(dsv.analysis_results,st,parameter_list=parameter_list,allow_non_identical_objects=True)
         dsvs = []
 

@@ -116,20 +116,21 @@ class DataStoreView(ParametrizedObject):
         """
         ids = self.full_datastore.block.annotations['neuron_ids'][sheet_name]
         if isinstance(neuron_ids,list) or isinstance(neuron_ids,numpy.ndarray):
-          return [numpy.where(ids == i)[0] for i in neuron_ids]
+          return [numpy.where(ids == i)[0][0] for i in neuron_ids]
         else:
-          return numpy.where(ids == neuron_ids)[0]
+          return numpy.where(ids == neuron_ids)[0][0]
 
     def get_sheet_ids(self, sheet_name,indexes=None):
         """
         Returns the idds of neurons in the sheet given the indexes (this should be primarily used with annotations data such as positions etc.)
         """
         # find first segment from sheet sheet_name
-        if indexes == None:
+        if isinstance(indexes,list) or isinstance(indexes,numpy.ndarray):
+            return self.full_datastore.block.annotations['neuron_ids'][sheet_name][indexes]
+        elif indexes  == None:
             return self.full_datastore.block.annotations['neuron_ids'][sheet_name]
         else:
-            return self.full_datastore.block.annotations['neuron_ids'][sheet_name][indexes]
-
+            raise ValueError("indexes can be aither None or list or ndarray, %s was supplied instead" % (str(type(indexes))))
     def get_sheet_parameters(self,sheet_name):
         """
         Returns the *ParemterSet* instance corresponding to the given sheet.
@@ -182,6 +183,17 @@ class DataStoreView(ParametrizedObject):
             return self.sensory_stimulus.values()
         else:
             return [self.sensory_stimulus[s] for s in stimuli]
+
+    def get_experiment_parametrization_list(self):
+        
+        """
+        Return the list of parameters of all experiments performed (in the order they were performed).
+        
+        The returned data are in the following format:  a list of tuples (experimenta_class,parameter_set) where
+        *experiment_class* is the class of the experiment, and parameter_set is a ParameterSet instance converted to string
+        that corresponds to the parameters of the given experiment.
+        """
+        return self.block.annotations['experiment_parameters'];
 
     def sensory_stimulus_copy(self):
         """
@@ -342,16 +354,24 @@ class DataStore(DataStoreView):
     def set_sheet_parameters(self,parameters):
         self.block.annotations['sheet_parameters'] = parameters
         
+    def set_experiment_parametrization_list(self,experiment_parameter_list):
+        """
+        The experiment_parameter_list is epected to be a list of tuples (experimenta_class,parameter_set) where
+        *experiment_class* is the class of the experiment, and parameter_set is a ParameterSet instance converted to string 
+        that corresponds to the parameters of the given experiment.
+        """
+        self.block.annotations['experiment_parameters'] = experiment_parameter_list
+        
     def identify_unpresented_stimuli(self, stimuli):
         """
         This method filters out from a list of stimuli all those which have already been
         presented.
         """
-        unpresented_stimuli = []
-        for s in stimuli:
+        unpresented_stimuli_indexes = []
+        for i,s in enumerate(stimuli):
             if not str(s) in self.stimulus_dict:
-                unpresented_stimuli.append(s)
-        return unpresented_stimuli
+                unpresented_stimuli_indexes.append(i)
+        return unpresented_stimuli_indexes
 
     def load(self):
         """
@@ -421,8 +441,8 @@ class DataStore(DataStoreView):
                logger.info("Warning: ADS with the same parametrization already added in the datastore.: %s" % (str(result))) 
                self.analysis_results[i] = result
                return
-            logger.error("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: %s" % (str(result)))
-            raise ValueError("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: %s" % (str(result)))
+            logger.error("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: \n %s \n %s " % (str(result),str(ads)))
+            raise ValueError("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: %s \n %s" % (str(result),str(ads)))
 
 class Hdf5DataStore(DataStore):
     """
@@ -482,8 +502,8 @@ class Hdf5DataStore(DataStore):
                logger.info("Warning: ADS with the same parametrization already added in the datastore.: %s" % (str(result))) 
                self.analysis_results[i] = result
                return
-            logger.error("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: %s" % (str(result)))
-            raise ValueError("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: %s" % (str(result)))
+            logger.error("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: \n %s \n %s " % (str(result),str(ads)))
+            raise ValueError("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: %s \n %s" % (str(result),str(ads)))
 
 
 
@@ -505,9 +525,12 @@ class PickledDataStore(Hdf5DataStore):
             self.analysis_results = cPickle.load(f)
         else:
             self.analysis_results = []
-            
-        #f = open(self.parameters.root_directory + '/datastore.sensory.stimulus.pickle', 'rb')
-        #self.sensory_stimulus = cPickle.load(f)
+        
+        if os.path.isfile(self.parameters.root_directory + '/datastore.sensory.stimulus.pickle'):    
+            f = open(self.parameters.root_directory + '/datastore.sensory.stimulus.pickle', 'rb')
+            self.sensory_stimulus = cPickle.load(f)
+        else:
+            self.sensory_stimulus = {}
 
     def save(self):
         f = open(self.parameters.root_directory + '/datastore.recordings.pickle', 'wb')
@@ -518,9 +541,9 @@ class PickledDataStore(Hdf5DataStore):
         cPickle.dump(self.analysis_results, f)
         f.close()
 
-        #f = open(self.parameters.root_directory + '/datastore.sensory.stimulus.pickle', 'wb')
-        #cPickle.dump(self.sensory_stimulus, f)
-        #f.close()
+        f = open(self.parameters.root_directory + '/datastore.sensory.stimulus.pickle', 'wb')
+        cPickle.dump(self.sensory_stimulus, f)
+        f.close()
 
     def add_recording(self, segments, stimulus):
         # we get recordings as seg

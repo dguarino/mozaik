@@ -6,7 +6,7 @@ import numpy
 import quantities as qt
 import mozaik
 import mozaik.tools.units as munits
-from neo.core.analogsignalarray import AnalogSignal
+from neo import AnalogSignal
 
 logger = mozaik.getMozaikLogger()
 
@@ -37,7 +37,7 @@ def psth(spike_list, bin_length,normalize=True):
     """
     t_start = round(spike_list[0].t_start.rescale(qt.ms),5)
     t_stop = round(spike_list[0].t_stop.rescale(qt.ms),5)
-    num_bins = round((t_stop-t_start)/bin_length)
+    num_bins = int(round((t_stop-t_start)/bin_length))
     r = (float(t_start), float(t_stop))
 
     for sp in spike_list:
@@ -45,7 +45,7 @@ def psth(spike_list, bin_length,normalize=True):
         
     normalizer = 1.0
     if normalize:
-       normalizer = (bin_length/1000)
+       normalizer = (bin_length/1000.0)
        
     h = [AnalogSignal(numpy.histogram(sp, bins=num_bins, range=r)[0] /normalizer ,t_start=t_start*qt.ms,sampling_period=bin_length*qt.ms,units=munits.spike_per_sec) for sp in spike_list]
     return  h

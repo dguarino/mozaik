@@ -4,8 +4,12 @@ See :mod:`mozaik.visualization` for more general documentation.
 import mozaik.visualization.helper_functions as phf
 import pylab
 import numpy
+import math
 import mozaik
 import mozaik.tools.units 
+import quantities as pq
+from matplotlib.colors import *
+from cycler import cycler
 
 logger = mozaik.getMozaikLogger()
 
@@ -224,6 +228,8 @@ class StandardStyle(SimplePlot):
             "y_axis": True,
             "x_label": None,
             "y_label": None,
+            "x_label_pad": None,
+            "y_label_pad": None,
             "top_right_border": False,
             "left_border": True,
             "bottom_border": True,
@@ -258,13 +264,13 @@ class StandardStyle(SimplePlot):
         self.colormap = matplotlib.colors.LinearSegmentedColormap.from_list('CMcmSBVe',[self.color_cycle['SB'],self.color_cycle['Ve']])
 
     def pre_axis_plot(self):
-        pylab.rc('axes', linewidth=3)
+        pylab.rc('axes', linewidth=1)
         self.xtick_pad_backup = pylab.rcParams['xtick.major.pad']
         pylab.rcParams['xtick.major.pad'] = self.x_tick_pad
         self.ytick_pad_backup = pylab.rcParams['ytick.major.pad']
         pylab.rcParams['ytick.major.pad'] = self.y_tick_pad
-        self.colormap_backup = pylab.rcParams['axes.color_cycle']
-        pylab.rcParams['axes.color_cycle'] = [self.color_cycle[c] for c in sorted(self.color_cycle.keys())]
+        self.colormap_backup = pylab.rcParams['axes.prop_cycle']
+        pylab.rcParams['axes.prop_cycle'] = cycler('color',[self.color_cycle[c] for c in sorted(self.color_cycle.keys())])
 
 
     def pre_plot(self):
@@ -302,9 +308,9 @@ class StandardStyle(SimplePlot):
 
 
         if self.y_label and self.y_axis:
-            pylab.ylabel(self.y_label,multialignment='center',fontsize=self.fontsize)
+            pylab.ylabel(self.y_label,multialignment='center',fontsize=self.fontsize,labelpad=self.y_label_pad)
         if self.x_label and self.x_axis:
-            pylab.xlabel(self.x_label,multialignment='center',fontsize=self.fontsize)
+            pylab.xlabel(self.x_label,multialignment='center',fontsize=self.fontsize,labelpad=self.x_label_pad)
         if not self.top_right_border:
             phf.disable_top_right_axis(self.axis)
         if not self.left_border:
@@ -319,7 +325,7 @@ class StandardStyle(SimplePlot):
         pylab.rc('axes', linewidth=1)
         pylab.rcParams['xtick.major.pad'] = self.xtick_pad_backup
         pylab.rcParams['ytick.major.pad'] = self.ytick_pad_backup
-        pylab.rcParams['axes.color_cycle'] =self.colormap_backup
+        pylab.rcParams['axes.prop_cycle'] =self.colormap_backup
 
     def _ticks(self):
         if self.x_axis:
@@ -410,8 +416,8 @@ class SpikeRasterPlot(StandardStyle):
 
         neurons = [i for i in xrange(0, len(self.sps[0][0]))]
         
-        t_start = float(self.sps[0][0][0].t_start)
-        t_stop = float(self.sps[0][0][0].t_stop)
+        t_start = float(self.sps[0][0][0].t_start.rescale(pq.s))
+        t_stop = float(self.sps[0][0][0].t_stop.rescale(pq.s))
         
         
         num_n = len(neurons)  # number of neurons
@@ -422,11 +428,11 @@ class SpikeRasterPlot(StandardStyle):
                 if self.group_trials:
                    train = []
                    for i, spike_list in enumerate(sp):
-                       train.extend(spike_list[n])
+                       train.extend(spike_list[n].rescale(pq.s))
                    self.axis.plot(train,[j for x in xrange(0, len(train))],'|',color=colors[k],mew=1)
                 else:
                     for i, spike_list in enumerate(sp):
-                        spike_train = spike_list[n]
+                        spike_train = spike_list[n].rescale(pq.s)
                         self.axis.plot(spike_train,
                                        [j * (num_t + 1) + i + 1
                                           for x in xrange(0, len(spike_train))],
@@ -442,11 +448,9 @@ class SpikeRasterPlot(StandardStyle):
             self.y_lim = (0, num_n)
         
         self.x_ticks = [t_start, (t_stop-t_start)/2, t_stop]
-        self.x_tick_style = 'Custom'
         self.x_lim = (t_start, t_stop)
-        self.x_label = 'time (ms)'
+        self.x_label = 'time (s)'
         self.y_label = None
-        
         self.y_ticks = []
 
 
@@ -485,36 +489,45 @@ class SpikeHistogramPlot(SpikeRasterPlot):
     plotted. If neurons are None, the first neuron will be plotted. 
     """
 
-    def __init__(self, spike_lists,**param):
+    def __init__(self, spike_lists,num_trials,**param):
         SpikeRasterPlot.__init__(self, spike_lists,**param)
-        self.parameters["bin_width"] = 5.0
+        self.parameters["bin_width"] = 0.005
         self.parameters["colors"] = ['#000000' for i in xrange(0, len(self.sps))]
+        self.num_trials = num_trials
+        
     def plot(self):
-        self.neurons = [i for i in xrange(0, min(10, len(self.sps[0][0])))]
+        self.neurons = [i for i in xrange(0, len(self.sps[0][0]))]
 
-        t_stop = float(self.sps[0][0][0].t_stop)
-        t_start = float(self.sps[0][0][0].t_start)
+        t_stop = float(self.sps[0][0][0].t_stop.rescale(pq.s))
+        t_start = float(self.sps[0][0][0].t_start.rescale(pq.s))
 
         all_spikes = []
         for k, sp in enumerate(self.sps):
             tmp = []
             for i, spike_list in enumerate(sp):
-                for j in self.neurons:
-                    spike_train = spike_list[j]
+                for st in spike_list:
+                    spike_train = st.rescale(pq.s)
                     tmp.extend(spike_train.magnitude)
             all_spikes.append(tmp)
 
         if all_spikes != []:
-            self.axis.hist(all_spikes,
+            n,_,_ = self.axis.hist(all_spikes,
                            bins=numpy.arange(0, t_stop, self.bin_width),
                            color=self.colors,
                            edgecolor='none')
+        
+        self.y_tick_style = 'Custom'
+        self.y_ticks = [0,numpy.max(n)]
+        self.y_tick_labels = [0,int(math.ceil(numpy.max(n)/len(self.neurons)/self.bin_width/self.num_trials))]
 
-        self.y_label = '(spk/ms)'
-        self.x_tick_style = 'Custom'
+        self.y_tick_style = 'Custom'
+        self.y_ticks = [0,numpy.max(n)]
+        self.y_tick_labels = [0,numpy.max(n)/len(self.neurons)/self.bin_width/self.num_trials]
+
+        self.y_label = '(spk/s)'
         self.x_ticks = [t_start, (t_stop-t_start)/2, t_stop]
         self.x_lim = (t_start, t_stop)
-        self.x_label = 'time (ms)'
+        self.x_label = 'time (s)'
 
 
 
@@ -621,21 +634,35 @@ class ScatterPlotMovie(StandardStyleAnimatedPlot):
         self.parameters["marker"] = 'o'
         self.parameters["left_border"] = False
         self.parameters["bottom_border"] = False
+        self.parameters["colors"] = False
 
     def plot_next_frame(self):
-        #vmax = numpy.max(self.z)/2.0
-        #d= numpy.array([[1.0,1.0,1.0,x/vmax] for x in self.z[self.i, :].flatten()])
-        self.scatter.set_array(self.z[self.i, :].flatten())
+        if isinstance(self.parameters['colors'],numpy.ndarray):
+            self.scatter.set_color(self.z[self.i, :])
+        else:
+            self.scatter.set_array(self.z[self.i, :])
         self.i = self.i + 1
         if self.i == self.l:
             self.i = 0
         return self.scatter
 
     def plot(self):
-        vmax = numpy.max(self.z)/4.0
-        #d= numpy.array([[1,1,1,x/vmax] for x in self.z[0, :].flatten()])
-        #print numpy.shape(d)
-        self.scatter = self.axis.scatter(self.x.flatten(), self.y.flatten(),
+        self.z = self.z / numpy.max(self.z)
+        vmax = 1/2.0
+        
+        if isinstance(self.parameters['colors'],numpy.ndarray):
+            HSV = numpy.dstack((numpy.tile(self.parameters['colors'],(len(self.z),1)),numpy.ones_like(self.z)*0.8,self.z))
+            self.z = hsv_to_rgb(HSV)   
+
+            self.scatter = self.axis.scatter(self.x.flatten(), self.y.flatten(),
+                                         c=self.z[0,:],
+                                         s=self.parameters["dot_size"],
+                                         marker=self.parameters["marker"],
+                                         lw=0,
+                                         vmax=vmax,
+                                         alpha=0.4)
+        else:
+            self.scatter = self.axis.scatter(self.x.flatten(), self.y.flatten(),
                                          c=self.z[0, :].flatten(),
                                          s=self.parameters["dot_size"],
                                          marker=self.parameters["marker"],
@@ -676,9 +703,6 @@ class ScatterPlot(StandardStyle):
     identity_line : bool
                   Should identity line be show?  
       
-    colorbar : bool
-             Should there be a colorbar?
-             
     cmp : colormap
              The colormap to use.
     
@@ -693,6 +717,9 @@ class ScatterPlot(StandardStyle):
         
     mark_means : bool
                Whether to mark the means of each axis.
+
+    colorbar : bool
+             Should there be a colorbar?
 
     colorbar_label : label
                The label  that will be put on the colorbar.
@@ -732,17 +759,16 @@ class ScatterPlot(StandardStyle):
                                marker=self.marker,
                                lw=0,
                                cmap=self.cmp,
-                               color='k',
+                               #color='k',
                                vmin=vmin,
                                vmax=vmax)
 
         if self.equal_aspect_ratio:
             self.axis.set_aspect(aspect=1.0, adjustable='box')
+        logger.debug(numpy.min(self.x))
+        logger.debug(numpy.max(self.x))
         self.x_lim = (numpy.min(self.x),numpy.max(self.x))
         self.y_lim = (numpy.min(self.y),numpy.max(self.y))
-
-        #self.x_ticks = [1.1*numpy.min(self.x), 1.1*numpy.max(self.x)]
-        #self.y_ticks = [1.1*numpy.min(self.y), 1.1*numpy.max(self.y)]
 
         if self.identity_line:
            pylab.plot([-1e10,1e10],[-1e10,1e10],'k',linewidth=2) 
@@ -779,7 +805,12 @@ class StandardStyleLinePlot(StandardStyle):
          be plotted.
 
     labels : list, optional
-           Can contain the labels to be given to the individual line plots.
+             Can contain the labels to be given to the individual line plots.
+           
+    error : list, optional
+            Can contain the error bars associated with y. Has to have the same shape as y.
+           
+    
 
     
     Other parameters
@@ -789,7 +820,12 @@ class StandardStyleLinePlot(StandardStyle):
            The colors of the plots. If it is one color all plots will have that same color. If it is a list its
            length should correspond to length of x and y and the corresponding colors will be assigned to the individual graphs.
            If dict, the keys should be labels, and values will be the colors that will be assigned to the lines that correspond to the labels.
-
+           
+    linestyles : str or list of str
+           The linestyles of the plots. If it is scalar all plots will have that same linestyle. If it is a list its
+           length should correspond to length of x and y and the corresponding linestyles will be assigned to the individual graphs.
+           If dict, the keys should be labels, and values will be the linestyles that will be assigned to the lines that correspond to the labels.
+    
     mean : bool
          If the mean of the vectors should be plotted as well.
          
@@ -801,16 +837,22 @@ class StandardStyleLinePlot(StandardStyle):
 
     """
 
-    def __init__(self, x, y, labels=None,**param):
+    def __init__(self, x, y, labels=None,error=None,**param):
         StandardStyle.__init__(self,**param)
         self.x = x
         self.y = y
+        self.error = error
+        
         self.parameters["labels"] = labels
         self.parameters["colors"] = None
+        self.parameters["linestyles"] = None
         self.parameters["mean"] = False
         self.parameters["fill"] = False
         self.parameters["legend"] = False
         self.parameters["linewidth"] = 1
+    
+        if error != None:
+           assert numpy.shape(error) == numpy.shape(y)
 
         assert len(x) == len(y)
         if labels != None:
@@ -827,6 +869,11 @@ class StandardStyleLinePlot(StandardStyle):
            assert self.labels != None
            assert len(self.colors.keys()) == len(self.labels)
         
+        if type(self.linestyles) == dict:
+           assert self.labels != None
+           assert len(self.linestyles.keys()) == len(self.labels)
+                
+        
         tmin = 10**10
         tmax = -10**10
         for i in xrange(0, len(self.x)):
@@ -835,32 +882,47 @@ class StandardStyleLinePlot(StandardStyle):
                     m = self.y[i]
                 else:
                     m = m + self.y[i]
-
-            if self.colors == None:
-                color = 'k'
-            elif type(self.colors) == list:
-                color = self.colors[i]
-            elif type(self.colors) == dict:
-                assert self.labels[i] in self.colors.keys(), "Cannot find curve named %s" % (self.labels[i])
-                color = self.colors[self.labels[i]]
-            else:
-                color = self.colors
-
+            
+            p = {}
+            
             if self.labels != None:
-                self.axis.plot(self.x[i], self.y[i],
+                p['label'] =self.labels[i]
+                
+            if type(self.colors) == list:
+                p['color'] = self.colors[i]
+            elif type(self.colors) == dict:
+                assert self.labels[i] in self.colors.keys(), "Cannot find curve named %s %s %s" % (self.labels[i],self.colors.keys(),self.colors[self.labels[i]])
+                p['color'] = self.colors[self.labels[i]]
+            elif self.colors != None:
+                p['color'] = self.colors
+            elif self.colors == None:
+                p['color'] = self.axis._get_lines.prop_cycler.next()['color']
+            
+            if type(self.linestyles) == list:
+                p['linestyle'] = self.linestyles[i]
+            elif type(self.colors) == dict:
+                assert self.labels[i] in self.linestyles.keys(), "Cannot find curve named %s %s %s" % (self.labels[i],self.linestyles.keys(),self.linestyles[self.labels[i]])
+                p['linestyle'] = self.linestyles[self.labels[i]]
+            elif self.linestyles != None:
+                p['linestyle'] = self.linestyles
+            elif self.linestyles == None:
+                p['linestyle'] = '-'
+            
+            
+            self.axis.plot(self.x[i], self.y[i],
                                linewidth=self.linewidth,
-                               label=self.labels[i],
-                               color=color)
-            else:
-                self.axis.plot(self.x[i], self.y[i],
-                               linewidth=self.linewidth,
-                               color=color)
+                               **p)
             
             if self.fill:
                d = numpy.zeros(len(self.y[i]))
-               self.axis.fill_between(self.x[i],self.y[i],where=self.y[i]>=d, color=color, alpha=0.2,linewidth=0)
-               self.axis.fill_between(self.x[i],self.y[i],where=self.y[i]<=d, color=color, alpha=0.2,linewidth=0)
-                
+               self.axis.fill_between(self.x[i],self.y[i],where=self.y[i]>=d, color=p['color'], alpha=0.2,linewidth=0)
+               self.axis.fill_between(self.x[i],self.y[i],where=self.y[i]<=d, color=p['color'], alpha=0.2,linewidth=0)
+            
+            if self.error:
+                ymin = self.y[i] - self.error[i]
+                ymax = self.y[i] + self.error[i]
+                self.axis.fill_between(self.x[i], ymax, ymin, color=p['color'], alpha=0.2)
+            
             pylab.hold('on')
 
             tmin = min(tmin, self.x[i][0])
@@ -910,8 +972,8 @@ class ConductancesPlot(StandardStyle):
         time_axis = numpy.arange(0, len(self.gsyn_es[0]), 1) / float(len(self.gsyn_es[0])) * abs(t_start-t_stop) + t_start
     
         for e, i in zip(self.gsyn_es, self.gsyn_is):
-            e = e.rescale(mozaik.tools.units.nS) #e=e*1000
-            i = i.rescale(mozaik.tools.units.nS) #i=i*1000
+            e = e.rescale(mozaik.tools.units.nS)
+            i = i.rescale(mozaik.tools.units.nS)
             self.axis.plot(time_axis, e.tolist(), color='#F5A9A9')
             self.axis.plot(time_axis, i.tolist(), color='#A9BCF5')
             mean_gsyn_e = mean_gsyn_e + numpy.array(e.tolist())
@@ -919,17 +981,18 @@ class ConductancesPlot(StandardStyle):
 
         mean_gsyn_i = mean_gsyn_i / len(self.gsyn_is)
         mean_gsyn_e = mean_gsyn_e / len(self.gsyn_es)
-
+        from scipy.signal import savgol_filter
+        #p1, = self.axis.plot(numpy.transpose(time_axis).flatten(), savgol_filter(numpy.transpose(mean_gsyn_e).tolist(),151,2).flatten(), color='r', linewidth=3)
+        #p2, = self.axis.plot(numpy.transpose(time_axis).flatten(), savgol_filter(numpy.transpose(mean_gsyn_i).tolist(),151,2).flatten(), color='b', linewidth=3)
         p1, = self.axis.plot(time_axis, mean_gsyn_e.tolist(), color='r', linewidth=1)
         p2, = self.axis.plot(time_axis, mean_gsyn_i.tolist(), color='b', linewidth=1)
-
         if self.legend:
             self.axis.legend([p1, p2], ['exc', 'inh'])
 
         self.x_lim = (t_start, t_stop)
         #self.x_ticks = [t_start, (t_stop - t_start)/2, t_stop]
-        self.x_label = 'time(' + self.gsyn_es[0].t_start.dimensionality.latex + ')'
-        self.y_label = 'g(' + mozaik.tools.units.nS.dimensionality.latex + ')'
+        self.x_label = 'time (' + self.gsyn_es[0].t_start.dimensionality.latex + ')'
+        self.y_label = 'g (' + mozaik.tools.units.nS.dimensionality.latex + ')'
 
 
 class ConnectionPlot(StandardStyle):
@@ -1009,16 +1072,16 @@ class ConnectionPlot(StandardStyle):
         self.pos_x = self.pos_x[numpy.nonzero(self.weights)[0]]
         self.pos_y = self.pos_y[numpy.nonzero(self.weights)[0]]
 
-        if self.colors != None:
+        if isinstance(self.colors,numpy.ndarray) or isinstance(self.colors,list):
             self.colors = numpy.array(self.colors)
             self.colors = self.colors[numpy.nonzero(self.weights)[0]] 
         self.weights = self.weights[numpy.nonzero(self.weights)[0]]
 
-        if self.colors == None:
-            if abs(numpy.max(self.weights)) > 0:
+        if not isinstance(self.colors,numpy.ndarray)  and self.colors==None:
+            if numpy.max(self.weights) > 0:
                 s = self.weights / numpy.max(self.weights) * 200
             else:
-                s = 2
+                s = 0
             ax = self.axis.scatter(self.pos_x, self.pos_y, c='black', s=s, lw=0)
         else:
             if self.period == None:
@@ -1027,15 +1090,16 @@ class ConnectionPlot(StandardStyle):
             else:
                 vmax = self.period
                 vmin = 0
+
             ax = self.axis.scatter(self.pos_x, self.pos_y, c=numpy.array(self.colors),edgecolors=None,
                                    s=self.weights/numpy.max(self.weights)*100,
                                    lw=1, cmap=self.cmp,
                                    vmin=vmin, vmax=vmax)
             if self.colorbar:
                 if vmin != vmax:
-                    cb = pylab.colorbar(ax, ticks=[vmin,vmax], use_gridspec=True)
+                    cb = pylab.colorbar(ax, ticks=[vmin, vmax], use_gridspec=True)
                 else:
-                    cb = pylab.colorbar(ax, ticks=[vmin-vmin*0.00001,vmin+vmin*0.00001], use_gridspec=True)
+                    cb = pylab.colorbar(ax, ticks=[vmin-0.1, vmin+0.1], use_gridspec=True)
                 cb.set_label(self.colorbar_label)
                 cb.set_ticklabels(["%.3g" % vmin, "%.3g" % vmax])
 
@@ -1068,18 +1132,172 @@ class HistogramPlot(StandardStyle):
            The colors to assign to the different sets of spikes. 
     """
 
-    def __init__(self, values,**param):
+    def __init__(self, values,labels=None,**param):
         StandardStyle.__init__(self,**param)
         self.values = values
         self.parameters["num_bins"] = 15.0
         self.parameters["log"] = False
+        self.parameters["labels"] = labels
+        self.parameters["colors"] = None
+        self.parameters["mark_mean"] = False
+        self.parameters["mark_value"] = False
+        if labels != None:
+            assert len(values) == len(labels)
+        
 
     def plot(self):
         
-        if self.parameters["log"]:
-            self.axis.hist(numpy.log10(self.values),bins=self.num_bins,range=self.x_lim,edgecolor='none')
+        if self.colors != None:
+           colors = [self.colors[k] for k in self.labels]
         else:
-            self.axis.hist(self.values,bins=self.num_bins,range=self.x_lim,edgecolor='none')
+           colors = None
         
-        self.y_label = '#'
+        if self.parameters["log"]:
+            self.axis.hist(numpy.log10(self.values),bins=int(self.num_bins),range=self.x_lim,edgecolor='none',color=colors)
+        else:
+            self.axis.hist(self.values,bins=int(self.num_bins),range=self.x_lim,rwidth=1,edgecolor='none',color=colors)
+            
+        if self.mark_mean:
+           for i,a in enumerate(self.values):
+                if self.colors==None:
+                    c = self.color_cycle[sorted(self.color_cycle.keys())[i]]
+                elif type(self.colors) == list:
+                    c = self.colors[i]
+                elif type(self.colors) == dict:
+                    assert self.labels[i] in self.colors.keys(), "Cannot find curve named %s" % (self.labels[i])
+                    c = self.colors[self.labels[i]]
+                
+                self.axis.annotate("",
+                    xy=(numpy.mean(a), (self.y_lim[1]-self.y_lim[0])*0.8), xycoords='data',
+                    xytext=(numpy.mean(a), self.y_lim[1]), textcoords='data',
+                    arrowprops=dict(arrowstyle="->",
+                                    connectionstyle="arc3",linewidth=3.0,color=c),
+                        )
+        if self.mark_value != False:
+           self.axis.annotate("",
+                    xy=(self.mark_value, (self.y_lim[1]-self.y_lim[0])*0.8), xycoords='data',
+                    xytext=(self.mark_value, self.y_lim[1]), textcoords='data',
+                    arrowprops=dict(arrowstyle="->",
+                                    connectionstyle="arc3",linewidth=3.0,color='r'),
+                        )
+
+        self.y_label = '#' 
         
+class CorticalColumnSpikeRasterPlot(StandardStyle):
+    """
+    This function plots the raster plot of spikes in the `spike_lists` argument. It assumes
+    each entry in the `spike_lists` corresponds to different cortical layer (or neural type within a layer)
+    and will plot them in that order in the typical 'spikes across layer' raster plot.
+
+    Parameters
+    ----------
+    spike_lists : list
+                The `spike_lists` argument is a list of SpikeList objects. The top
+                level list corresponds to different sets of spikes that are assumed to come
+                from different cortical layers (or cell types within layers). Each set
+                of spikes will be colored by the color on corresponding postion of the
+                colors parameter (matplotlib readable color formats accapted). If None all
+                colors will be set to '#848484' (gray). The second level list contains 
+                different trials of the populations responses stored in the individual SpikeList objects.
+
+    Other parameters
+    ----------------
+    colors : list
+           The colors to assign to the different sets of spikes. 
+    labels : list
+           The list of labels to be given to the different 'layers'. This list should have the same length as
+           `spike_lists`.
+           
+
+    Notes
+    -----
+    
+    All SpikeList objects must record over the same interval.
+    """
+    def __init__(self, spike_lists,**param):
+        StandardStyle.__init__(self,**param)
+        self.sps = spike_lists
+        self.parameters["colors"] = None
+        self.parameters["labels"] = None
+
+    def plot(self):
+        if self.parameters["colors"] == None:
+            colors = ['#000000' for i in xrange(0, len(self.sps))]
+        else:
+            colors = self.colors
+            
+        assert len(self.labels) == len(self.sps) 
+
+        t_start = float(self.sps[0][0].t_start.rescale(pq.s))
+        t_stop = float(self.sps[0][0].t_stop.rescale(pq.s))
+        
+        for l in self.sps:
+            for n in l:
+                assert n.t_start.rescale(pq.s) == t_start , "Not all SpikeLists have the same t_start"
+                assert n.t_stop.rescale(pq.s) == t_stop , "Not all SpikeLists have the same t_start"
+
+        y = 0
+        yticks = [0]
+        for k, sp in enumerate(self.sps):
+            yticks.append(yticks[-1]+len(sp))
+            for j, n in enumerate(sp):
+                self.axis.scatter(n.rescale(pq.s),[y for x in xrange(0, len(n))],s=7, c=colors[k], marker='o',lw=0)
+                y += 1
+        
+        yticks = [yticks[j-1] + (yticks[j]-yticks[j-1])/2.0 for j in xrange(1,len(yticks))]
+        
+        self.x_lim = (t_start, t_stop)
+        self.x_label = 'time (s)'
+        
+        self.y_lim = (0,y)
+        self.y_tick_style = 'Custom'
+        self.y_ticks = yticks
+        self.y_tick_labels = self.labels
+
+class OrderedAnalogSignalListPlot(StandardStyle):
+    """
+    This plots a set of signals, each associated with a value that can be ordered. 
+    
+    Parameters
+    ----------
+    signals : list
+                        List of vectors to be plotted.
+    values : list
+                        List of values with which the given signal is associated with.
+    Other parameters
+    ----------------
+
+    cmap : str
+           The colormap to use.
+
+    interpolation : str
+           The interpolation to use (see imshow command in matplotlib).
+           
+    colorbar : bool
+             Should there be a colorbar?
+
+    colorbar_label : label
+               The label  that will be put on the colorbar.
+
+
+    """
+
+    def __init__(self, signals, values,**param):
+        StandardStyle.__init__(self,**param)
+        self.signals = signals
+        self.values = values
+        self.parameters["cmap"] = 'jet'
+        self.parameters["interpolation"] = 'bilinear'
+        self.parameters["colorbar"] = False
+        self.parameters["colorbar_label"] = None
+
+        assert len(signals) == len(values)
+        
+    def plot(self):
+        
+        ax = self.axis.imshow(self.signals,cmap=self.cmap,aspect='auto',interpolation=self.interpolation)
+
+        if self.colorbar:
+            cb = pylab.colorbar(ax,  use_gridspec=True)
+            cb.set_label(self.colorbar_label)
+            

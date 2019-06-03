@@ -14,7 +14,6 @@ import numpy
 
 logger = mozaik.getMozaikLogger()
 
-
 class Model(BaseComponent):
     """
     Model encapsulates a mozaik model.
@@ -41,6 +40,9 @@ class Model(BaseComponent):
     
     input_space : ParameterSet
                 The parameters for the InputSpace object that will become the sensory input space for the model.
+    
+    sheets : ParameterSet
+                The list of sheets and their parameters from which the model is constructed. 
                 
     input_space_type : str
                      The python class of the InputSpace object to use.
@@ -65,7 +67,10 @@ class Model(BaseComponent):
         'input_space_type': str,  # defining the type of input space, visual/auditory/... it is the class path to the class representing it
         'min_delay' : float,
         'max_delay' : float,
-        'time_step' : float
+        'time_step' : float,
+        'sheets' : ParameterSet, # can be none - in which case input_space_type is ignored
+        'mpi_seed' : int,
+        'pynn_seed' : int
     })
 
     def __init__(self, sim, num_threads, parameters):
@@ -75,6 +80,7 @@ class Model(BaseComponent):
         self.node = sim.setup(timestep=self.parameters.time_step, min_delay=self.parameters.min_delay, max_delay=self.parameters.max_delay, threads=num_threads)  # should have some parameters here
         self.sheets = {}
         self.connectors = {}
+        self.num_threads = num_threads
 
         # Set-up the input space
         if self.parameters.input_space != None:
@@ -111,6 +117,7 @@ class Model(BaseComponent):
                      The biological time of the simulation up to this point (including blank presentations).
                                           
         """
+        t0 = time.time()
         for sheet in self.sheets.values():
             if self.first_time:
                sheet.record()
@@ -127,6 +134,7 @@ class Model(BaseComponent):
                 sensory_input = None                                                    
         else:
             sensory_input = None
+
         sim_run_time += self.run(stimulus.duration)
         segments = []
         
@@ -148,6 +156,8 @@ class Model(BaseComponent):
             for ds in artificial_stimulators.get(sheet.name,[]):
                 ds.inactivate(self.simulator_time)
         
+        logger.info("Stimulus presentation took %.0f s, of which %.0f s was simulation time"  % (time.time() - t0,sim_run_time))
+
         return (segments, null_segments,sensory_input,sim_run_time)
         
     def run(self, tstop):
@@ -194,6 +204,7 @@ class Model(BaseComponent):
                                                         self.simulator_time)
                                                         
                 logger.info("Simulating the network for %s ms with blank stimulus" % self.parameters.null_stimulus_period)
+        
                 self.sim.run(self.parameters.null_stimulus_period)
                 self.simulator_time+=self.parameters.null_stimulus_period
                 for sheet in self.sheets.values():    
@@ -201,6 +212,7 @@ class Model(BaseComponent):
                        s = sheet.get_data(self.parameters.null_stimulus_period)
                        if (not mozaik.mpi_comm) or (mozaik.mpi_comm.rank == mozaik.MPI_ROOT):
                            segments.append(s)
+
         return segments,time.time()-t0    
     
 

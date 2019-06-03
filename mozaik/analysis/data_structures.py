@@ -126,16 +126,19 @@ class PerNeuronPairValue(AnalysisDataStructure):
         """
         Parameters
         ---------- 
-        idd : int or list(int)
-            The ids for which the return the values.
+        idds1 : int or list(int)
+            The ids for which the return the values along first dimension.
+        
+        idds2 : int or list(int)
+            The ids for which the return the values along first dimension.
         
         Returns
         -------
-        ids : AnalogSignal or list(AnalogSignal)
-            List (or single) of AnalogSignal objects corresponding to ids in `idd`.
+        ids : scaler or array
+            Array or scalar of values corresponding to `idds`.
         """
         if (isinstance(idds1,list) or isinstance(idds1,numpy.ndarray)) and (isinstance(idds2,list) or isinstance(idds2,numpy.ndarray)):
-            return self.values[[list(self.ids).index(i) for i in idds1]][[list(self.ids).index(i) for i in idds2]]
+            return numpy.array(self.values)[[list(self.ids).index(i) for i in idds1],:][:,[list(self.ids).index(i) for i in idds2]]
         else:
             return self.values[list(self.ids).index(idds1),list(self.ids).index(idds2)]
 
@@ -255,6 +258,17 @@ class AnalogSignalList(AnalysisDataStructure1D):
             assert asl.t_start == self.asl[0].t_start, "AnalogSignalList.mean: t_start of AnalogSignal objects in the list do not match."        
         
         return numpy.mean(self.asl,axis=0)
+
+    def var(self):
+        """
+        Calculates the mean analog signal from the ones in the list.
+        """
+        for asl in self.asl:
+            assert asl.units == self.asl[0].units, "AnalogSignalList.mean: units of AnalogSignal objects in the list do not match."
+            assert asl.sampling_rate == self.asl[0].sampling_rate, "AnalogSignalList.mean: sampling_rate of AnalogSignal objects in the list do not match"
+            assert asl.t_start == self.asl[0].t_start, "AnalogSignalList.mean: t_start of AnalogSignal objects in the list do not match."        
+        
+        return numpy.var(self.asl,axis=0)
 
 
 

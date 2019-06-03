@@ -6,7 +6,8 @@ The file contains stimuli that use topographica to generate the stimulus
 from visual_stimulus import VisualStimulus
 import imagen
 import imagen.random
-import imagen.transferfn
+from imagen.transferfn import TransferFn
+import param
 from imagen.image import BoundingBox
 import pickle
 import numpy
@@ -30,10 +31,11 @@ class TopographicaBasedVisualStimulus(VisualStimulus):
 
 class SparseNoise(TopographicaBasedVisualStimulus):
     """
-    Sparse noise 
-    Produces a matrix with 0.5 and one random entry with 0 or 1
+    Sparse noise stimulus.
+    
+    Produces a matrix filled with 0.5 values and one random entry with 0 or 1.
     The output is then transformed with the following rule:
-    output = output * scale  + offset 
+    output = output * scale  + offset.
     """
     
     experiment_seed = SNumber(dimensionless, doc="The seed of a given experiment")
@@ -67,11 +69,11 @@ class SparseNoise(TopographicaBasedVisualStimulus):
 class DenseNoise(TopographicaBasedVisualStimulus):
     """
     Dense Noise 
+
+
     Produces a matrix with the values 0, 0.5 and 1 allocated at random
     and then scaled and translated by scale and offset with the next
     transformation rule:  result*scale + offset
-    
-   
     """
     
     experiment_seed = SNumber(dimensionless, doc="The seed of a given experiment") 
@@ -103,7 +105,11 @@ class DenseNoise(TopographicaBasedVisualStimulus):
 class FullfieldDriftingSinusoidalGrating(TopographicaBasedVisualStimulus):
     """
     A full field sinusoidal grating stimulus. 
-    
+     
+    A movies in which luminance is modulated as a sinusoid along one 
+    axis and is constant in the perpendicular axis. The phase of 
+    the sinusoid is increasing with time leading to a drifting pattern. 
+
     Notes
     -----
     `max_luminance` is interpreted as scale and `size_x/2` as the bounding box radius.
@@ -134,7 +140,12 @@ class FullfieldDriftingSinusoidalGrating(TopographicaBasedVisualStimulus):
 
 class FullfieldDriftingSquareGrating(TopographicaBasedVisualStimulus):
     """
-    A full field square grating stimulus. 
+    A full field square grating stimulus.
+
+    A movies composed of interlaced dark and bright bars spanning the width  
+    the visual space. The bars are moving a direction perpendicular to their
+    long axis. The speed is dictated by the *temporal_freuquency* parameter
+    the width of the bars by *spatial_frequency* parameter.
     """
 
     orientation = SNumber(rad, period=pi, bounds=[0,pi], doc="Grating orientation")
@@ -158,12 +169,57 @@ class FullfieldDriftingSquareGrating(TopographicaBasedVisualStimulus):
                     ydensity = self.density)(),
                 [self.current_phase])
             self.current_phase += 2*pi * (self.frame_duration/1000.0) * self.temporal_frequency
+
+class FullfieldDriftingSinusoidalGratingA(TopographicaBasedVisualStimulus):
+    """
+    A full field square grating stimulus.
+
+    A movies composed of interlaced dark and bright bars spanning the width  
+    the visual space. The bars are moving a direction perpendicular to their
+    long axis. The speed is dictated by the *temporal_freuquency* parameter
+    the width of the bars by *spatial_frequency* parameter.
+    """
+
+    orientation = SNumber(rad, period=pi, bounds=[0,pi], doc="Grating orientation")
+    spatial_frequency = SNumber(cpd, doc="Spatial frequency of grating")
+    temporal_frequency = SNumber(Hz, doc="Temporal frequency of grating")
+    contrast = SNumber(dimensionless,bounds=[0,100.0],doc="Contrast of the stimulus")
+    offset_time = SNumber(dimensionless,bounds=[0,None],doc="")
+    onset_time = SNumber(dimensionless,bounds=[0,None],doc="")
+
+    def frames(self):
+        self.current_phase=0
+        i = 0
+        t = 0
+        while True:
+            i += 1
+            st = imagen.SineGrating(
+                    orientation = self.orientation,
+                    frequency = self.spatial_frequency,
+                    phase = self.current_phase,
+                    bounds = BoundingBox( radius=self.size_x/2 ),
+                    offset = self.background_luminance*(100.0 - self.contrast)/100.0,
+                    scale = 2*self.background_luminance*self.contrast/100.0,
+                    xdensity = self.density,
+                    ydensity = self.density)()
+            if t > self.offset_time:
+                st = st * 0 + self.background_luminance
+            if t < self.onset_time:
+                st = st * 0 + self.background_luminance
+            
+            yield (st,[self.current_phase])
+            self.current_phase += 2*pi * (self.frame_duration/1000.0) * self.temporal_frequency
+            t=t+self.frame_duration
+
  
 
 
 class FlashingSquares(TopographicaBasedVisualStimulus):
     """
-    A couple of squares of dimension fitting provided spatial frequency and flashing at provided temporal frequency. 
+    A pair of displaced flashing squares. 
+
+    A pair of squares separated by a constant distance of dimensions dictated by provided *spatial_frequency* parameter
+    and flashing at frequency provided by the *temporal_frequency* parameter. 
     """
     orientation = SNumber(rad, period=pi, bounds=[0,pi], doc="Orientation of the square axis")
     spatial_frequency = SNumber(cpd, doc="Spatial frequency created by the squares and the gap between them")
@@ -220,7 +276,7 @@ class FlashingSquares(TopographicaBasedVisualStimulus):
                         size = size)()
                 yield (numpy.add(a,b),[t])
             else:
-                yield (imagen.Null(
+                yield (imagen.Constant(
                         scale=self.background_luminance*(100.0 - self.contrast)/100.0,
                         bounds=BoundingBox(radius=self.size_x/2),
                         xdensity=self.density,
@@ -234,6 +290,8 @@ class FlashingSquares(TopographicaBasedVisualStimulus):
 class Null(TopographicaBasedVisualStimulus):
     """
     Blank stimulus.
+
+    All pixels of the visual field are set to background luminance.
     """
     def frames(self):
         while True:
@@ -245,9 +303,30 @@ class Null(TopographicaBasedVisualStimulus):
 
 
 
+class MaximumDynamicRange(TransferFn):
+    """
+    It linearly maps 0 to the minimum of the image and 1.0 to the maximum in the image.
+    """
+    norm_value = param.Number(default=1.0)
+    
+    def __call__(self,x):
+        mi = numpy.min(x)
+        ma = numpy.max(x)
+
+        if ma-mi != 0:
+                x -= mi
+                x *= 1/(ma-mi)
+
+
+
 class NaturalImageWithEyeMovement(TopographicaBasedVisualStimulus):
     """
     A visual stimulus that simulates an eye movement over a static image.
+
+    This is a movie that is generated by translating a 
+    static image along a pre-specified path (presumably containing path
+    that corresponds to eye-movements).
+    
     """
     size = SNumber(degrees, doc="The length of the longer axis of the image in visual degrees")
     eye_movement_period = SNumber(ms, doc="The time between two consequitve eye movements recorded in the eye_path file")
@@ -260,7 +339,7 @@ class NaturalImageWithEyeMovement(TopographicaBasedVisualStimulus):
         self.eye_path = pickle.load(f)
         self.pattern_sampler = imagen.image.PatternSampler(
                                     size_normalization='fit_longest',
-                                    whole_pattern_output_fns=[imagen.transferfn.MaximumDynamicRange()])
+                                    whole_pattern_output_fns=[MaximumDynamicRange()])
 
         image = imagen.image.FileImage(         
                                     filename=self.image_location,
@@ -287,6 +366,10 @@ class NaturalImageWithEyeMovement(TopographicaBasedVisualStimulus):
 class DriftingGratingWithEyeMovement(TopographicaBasedVisualStimulus):
     """
     A visual stimulus that simulates an eye movement over a drifting  gratings.
+
+    This is a movie that is generated by translating a 
+    full-field drifting sinusoidal gratings along a pre-specified path 
+    (presumably containing path that corresponds to eye-movements).
     """
 
     orientation = SNumber(rad, period=pi, bounds=[0,pi], doc="Grating orientation")
@@ -324,8 +407,13 @@ class DriftingGratingWithEyeMovement(TopographicaBasedVisualStimulus):
 
 class DriftingSinusoidalGratingDisk(TopographicaBasedVisualStimulus):
     """
-    A drifting sinusoidal grating confined to a apareture of specified radius.
-    
+    A drifting sinusoidal grating confined to a aperture of specified radius.
+
+    A movies in which luminance is modulated as a sinusoid along one 
+    axis and is constant in the perpendicular axis. The phase of 
+    the sinusoid is advancing with time leading to a drifting pattern.
+    The whole stimulus is confined to an aperture of  
+
     Notes
     -----
     size_x/2 is interpreted as the bounding box radius.
@@ -348,7 +436,7 @@ class DriftingSinusoidalGratingDisk(TopographicaBasedVisualStimulus):
                                    xdensity=self.density,
                                    ydensity=self.density)()
             
-            b = imagen.Null(scale=self.background_luminance,
+            b = imagen.Constant(scale=self.background_luminance,
                             bounds=BoundingBox(radius=self.size_x/2),
                             xdensity=self.density,
                             ydensity=self.density)()
@@ -369,7 +457,13 @@ class DriftingSinusoidalGratingDisk(TopographicaBasedVisualStimulus):
 class FlatDisk(TopographicaBasedVisualStimulus):
     """
     A flat luminance aperture of specified radius.
-    
+
+    This stimulus corresponds to a disk of constant luminance of 
+    pre-specified *radius* flashed for the *duration* of milliseconds
+    on a constant background of *background_luminance* luminance.
+    The luminance of the disk is specified by the *contrast* parameter,
+    and is thus *background_luminance* + *background_luminance* \* (*self.contrast*/100.0).
+
     Notes
     -----
     size_x/2 is interpreted as the bounding box.
@@ -387,6 +481,7 @@ class FlatDisk(TopographicaBasedVisualStimulus):
                             bounds=BoundingBox(radius=self.size_x/2),
                             xdensity=self.density,
                             ydensity=self.density)()  
+         
             yield (d,[self.current_phase])
 
 
@@ -394,6 +489,7 @@ class FlatDisk(TopographicaBasedVisualStimulus):
 class FlashedBar(TopographicaBasedVisualStimulus):
     """
     A flashed bar.
+
     This stimulus corresponds to flashing a bar of specific *orientation*,
     *width* and *length* at pre-specified position for *flash_duration* of milliseconds. 
     For the remaining time, until the *duration* of the stimulus, constant *background_luminance* 
@@ -496,9 +592,15 @@ class BrokenBar(TopographicaBasedVisualStimulus):
 
 class DriftingSinusoidalGratingCenterSurroundStimulus(TopographicaBasedVisualStimulus):
     """
-    A standard stimulus to probe orientation specific surround modulation:
-    A drifting grating in center surrounded by a drifting grating in the surround.
-    Orientations of both center and surround gratings can be varied independently.
+    Orientation-contrast surround stimulus.
+
+    This is a standard stimulus to probe orientation specific surround modulation:
+    a drifting sinusoidal grating in the center surrounded by a drifting grating 
+    in the surround. Orientations of both center (*center_orientation* parameter) 
+    and surround gratings (*surround_orientation* parameter) can be varied independently, 
+    but they have common *spatial_frequency* and *temporal_frequency*. Gap of *gap* degrees
+    of visual field can be placed between the center and surround stimulus.
+
 
     Notes
     -----

@@ -10,6 +10,7 @@ from mozaik.tools.misc import sample_from_bin_distribution, normal_function
 from mozaik import load_component
 
 
+
 logger = mozaik.getMozaikLogger()
 
 class ExpVisitor(ast.NodeVisitor):
@@ -162,11 +163,33 @@ class ModularSamplingProbabilisticConnector(ModularConnector):
         'base_weight' : ParameterDist
     })
 
-    def _determine_weights_and_delays(self,i):    
-        weights = self._obtain_weights(i)
-        delays = self._obtain_delays(i)
-        co = Counter(sample_from_bin_distribution(weights, self.parameters.num_samples.next()))
-        return co.keys(),[self.weight_scaler*self.parameters.base_weight.next()*co[k] for k in co.keys()],[delays[k] for k in co.keys()]
+    def _connect(self):
+        cl = []
+        v = 0
+        for i in numpy.nonzero(self.target.pop._mask_local)[0]:
+            weights = self._obtain_weights(i)
+            delays = self._obtain_delays(i)
+            co = Counter(sample_from_bin_distribution(weights, int(self.parameters.num_samples.next())))
+            v = v + numpy.sum(co.values())
+            k = co.keys()
+            a = numpy.array([k,numpy.zeros(len(k))+i,self.weight_scaler*numpy.multiply(self.parameters.base_weight.next(len(k)),co.values()),numpy.array(delays)[k]])
+            cl.append(a)
+
+        cl = numpy.hstack(cl).T
+        method = self.sim.FromListConnector(cl)
+        
+        logger.warning("%s(%s): %g connections were created, %g per target neuron [%g]" % (self.name,self.__class__.__name__,len(cl),len(cl)/len(numpy.nonzero(self.target.pop._mask_local)[0]),v/len(numpy.nonzero(self.target.pop._mask_local)[0])))
+	
+        if len(cl) > 0:
+            self.proj = self.sim.Projection(
+                                self.source.pop,
+                                self.target.pop,
+                                method,
+                                synapse_type=self.init_synaptic_mechanisms(),
+                                label=self.name,
+                                receptor_type=self.parameters.target_synapses)
+        else:
+            logger.warning("%s(%s): empty projection - pyNN projection not created." % (self.name,self.__class__.__name__))
 
 
 class ModularSingleWeightProbabilisticConnector(ModularConnector):
@@ -183,12 +206,96 @@ class ModularSingleWeightProbabilisticConnector(ModularConnector):
         'base_weight' : ParameterDist
     })
 
-    def _determine_weights_and_delays(self,i):
-        weights = self._obtain_weights(i)
-        delays = self._obtain_delays(i)
-        conections_probabilities = weights/numpy.sum(weights)*self.parameters.connection_probability*len(weights)
-        connection_indices = numpy.flatnonzero(conections_probabilities > numpy.random.rand(len(conections_probabilities)))
-        return connection_indices,[self.weight_scaler*self.parameters.base_weight.next() for k in connection_indices],[delays[k] for k in connection_indices]
+    def _connect(self):
+        cl = []
+        for i in numpy.nonzero(self.target.pop._mask_local)[0]:
+            weights = self._obtain_weights(i)
+            delays = self._obtain_delays(i)
+            conections_probabilities = weights/numpy.sum(weights)*self.parameters.connection_probability*len(weights)
+            connection_indices = numpy.flatnonzero(conections_probabilities > numpy.random.rand(len(conections_probabilities)))
+            cl.extend([(k,i,self.weight_scaler*self.parameters.base_weight.next(),delays[k]) for k in connection_indices])
 
-
+        method = self.sim.FromListConnector(cl)
+        logger.warning("%s: %g %g",self.name,min(conections_probabilities),max(conections_probabilities))
+        logger.warning("%s: %d connections  [,%g,%g,%g]",self.name,len(cl),self.parameters.connection_probability,numpy.sum(weights),len(weights))
         
+        if len(cl) > 0:
+            self.proj = self.sim.Projection(
+                                    self.source.pop,
+                                    self.target.pop,
+                                    method,
+                                    synapse_type=self.init_synaptic_mechanisms(),
+                                    label=self.name,
+                                    receptor_type=self.parameters.target_synapses)
+        else:
+            logger.warning("%s(%s): empty projection - pyNN projection not created." % (self.name,self.__class__.__name__))
+        
+
+
+
+
+class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnector):
+    """
+    ModularConnector that interprets the weights as proportional probabilities of connectivity
+    and for each neuron in connections it samples num_samples of
+    connections that actually get realized according to these weights.
+    Each such sample connections will have weight equal to
+    base_weight but note that there can be multiple
+    connections between a pair of neurons in this sample (in which case the
+    weights are set to the multiple of the base weights times the number of
+    occurrences in the sample).
+    """
+
+    required_parameters = ParameterSet({
+        'annotation_reference_name': str,
+        'num_samples': int,
+        'base_weight' : ParameterDist,
+    })
+
+    def worker(ref,idxs):
+        for i in idxs:
+            samples = self.target.get_neuron_annotation(i,self.parameters.annotation_reference_name)
+            weights = self._obtain_weights(i)
+            delays = self._obtain_delays(i)
+            if self.parameters.num_samples == 0:
+                co = Counter(sample_from_bin_distribution(weights, int(samples)))
+            else:
+                assert self.parameters.num_samples > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples,2*int(samples)))
+                a = sample_from_bin_distribution(weights, int(self.parameters.num_samples - 2*int(samples)))
+                co = Counter(a)
+            v = v + numpy.sum(co.values())
+            cl.extend([(int(k),int(i),self.weight_scaler*self.parameters.base_weight.next()[0]*co[k],delays[k]) for k in co.keys()])
+        return cl
+
+    def _connect(self):
+        cl = []
+        v = 0
+        for i in numpy.nonzero(self.target.pop._mask_local)[0]:
+            samples = self.target.get_neuron_annotation(i,self.parameters.annotation_reference_name)
+            weights = self._obtain_weights(i)
+            delays = self._obtain_delays(i)
+            if self.parameters.num_samples == 0:
+                co = Counter(sample_from_bin_distribution(weights, int(samples)))
+            else:
+                assert self.parameters.num_samples > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples,2*int(samples)))
+                co = Counter(sample_from_bin_distribution(weights, int(self.parameters.num_samples - 2*int(samples))))
+            v = v + numpy.sum(co.values())
+            k = co.keys()
+            a = numpy.array([k,numpy.zeros(len(k))+i,self.weight_scaler*numpy.multiply(self.parameters.base_weight.next(len(k)),co.values()),numpy.array(delays)[k]])
+            cl.append(a)
+
+        cl = numpy.hstack(cl).T
+        method = self.sim.FromListConnector(cl)
+        
+        logger.warning("%s(%s): %g connections were created, %g per target neuron [%g]" % (self.name,self.__class__.__name__,len(cl),len(cl)/len(numpy.nonzero(self.target.pop._mask_local)[0]),v/len(numpy.nonzero(self.target.pop._mask_local)[0])))
+        
+        if len(cl) > 0:
+            self.proj = self.sim.Projection(
+                                self.source.pop,
+                                self.target.pop,
+                                method,
+                                synapse_type=self.init_synaptic_mechanisms(),
+                                label=self.name,
+                                receptor_type=self.parameters.target_synapses)
+        else:
+            logger.warning("%s(%s): empty projection - pyNN projection not created." % (self.name,self.__class__.__name__))

@@ -38,10 +38,7 @@ class ModulationRatio(Analysis):
         for sheet in self.datastore.sheets():
             # Load up spike trains for the right sheet and the corresponding
             # stimuli, and transform spike trains into psth
-            print sheet
-            self.datastore.print_content()
             dsv = queries.param_filter_query(self.datastore,identifier='AnalogSignalList',sheet_name=sheet,analysis_algorithm='PSTH',st_name='FullfieldDriftingSinusoidalGrating')
-            dsv.print_content()
             assert queries.equal_ads(dsv,except_params=['stimulus_id']) , "It seems PSTH computed in different ways are present in datastore, ModulationRatio can accept only one"
             psths = dsv.get_analysis_result()
             st = [MozaikParametrized.idd(p.stimulus_id) for p in psths]
@@ -52,7 +49,6 @@ class ModulationRatio(Analysis):
             pnvs = self.datastore.get_analysis_result(identifier='PerNeuronValue',
                                                       sheet_name=sheet,
                                                       value_name='orientation preference')
-            
             if len(pnvs) != 1:
                 logger.error("ERROR: Expected only one PerNeuronValue per sheet "
                              "with value_name 'orientation preference' in datastore, got: "
@@ -86,12 +82,18 @@ class ModulationRatio(Analysis):
             for (st, vl) in d.items():
                 # here we will store the modulation ratios, one per each neuron
                 modulation_ratio = []
+                f0 = []
+                f1 = []
                 ids = []
-                frequency = MozaikParametrized.idd(st).temporal_frequency * MozaikParametrized.idd(st).params()['temporal_frequency'].units
+                frequency = MozaikParametrized.idd(st).temporal_frequency * MozaikParametrized.idd(st).getParams()['temporal_frequency'].units
                 for (orr, ppsth) in zip(vl[0], vl[1]):
                     for j in numpy.nonzero(orr == closest_presented_orientation)[0]:
                         if or_pref.ids[j] in ppsth.ids:
-                            modulation_ratio.append(self._calculate_MR(ppsth.get_asl_by_id(or_pref.ids[j]),frequency))
+                            a = or_pref.ids[j]
+                            mr,F0,F1 = self._calculate_MR(ppsth.get_asl_by_id(or_pref.ids[j]),frequency)
+                            modulation_ratio.append(mr)
+                            f0.append(F0)
+                            f1.append(F1)
                             ids.append(or_pref.ids[j])
                             
                 logger.debug('Adding PerNeuronValue:' + str(sheet))
@@ -105,6 +107,29 @@ class ModulationRatio(Analysis):
                                    period=None,
                                    analysis_algorithm=self.__class__.__name__,
                                    stimulus_id=str(st)))
+
+                self.datastore.full_datastore.add_analysis_result(
+                    PerNeuronValue(f0,
+                                   ids,
+                                   qt.dimensionless,
+                                   value_name='F0' + '(' + psths[0].x_axis_name + ')',
+                                   sheet_name=sheet,
+                                   tags=self.tags,
+                                   period=None,
+                                   analysis_algorithm=self.__class__.__name__,
+                                   stimulus_id=str(st)))
+                
+                self.datastore.full_datastore.add_analysis_result(
+                    PerNeuronValue(f1,
+                                   ids,
+                                   qt.dimensionless,
+                                   value_name='F1' + '(' + psths[0].x_axis_name + ')',
+                                   sheet_name=sheet,
+                                   tags=self.tags,
+                                   period=None,
+                                   analysis_algorithm=self.__class__.__name__,
+                                   stimulus_id=str(st)))
+
 
                 import pylab
                 pylab.figure()
@@ -120,20 +145,24 @@ class ModulationRatio(Analysis):
         period = 1/frequency
         period = period.rescale(signal.t_start.units)
         cycles = duration / period
-        first_har = round(cycles)
-
+        first_har = int(round(cycles))
         fft = numpy.fft.fft(signal)
 
         if abs(fft[0]) != 0:
-            return 2*abs(fft[first_har])/abs(fft[0])
+            return 2*abs(fft[first_har])/abs(fft[0]),abs(fft[0]),2*abs(fft[first_har]),
         else:
-            return 0
+            return 10,abs(fft[0]),2*abs(fft[first_har]),
 
 class Analog_F0andF1(Analysis):
       """
-      Calculates the DC and first harmonic of trial averaged vm and conductances for each neuron
-      measured to FullfieldDriftingSinusoidalGrating. 
-      It stores them in PerNeuronValue datastructures (one for exc. one for inh. conductances).
+      Calculates the DC and first harmonic of trial averaged vm and conductancesfor each neuron.
+
+      It also calculates the DC and F1 to any AnalogSignalList present in the datastore (not trial averaged this time).
+
+      The data_store has to contain responses or AnalogSignalLists to the same stimulus type, and the stymulus type has to have
+      <temporal_frequency> parameter which is used as the first harmonic frequency.
+      
+      It stores them in PerNeuronValue datastructures (one for exc. one for inh. conductances, and one for each AnalogSignalList).
       
       Notes
       -----
@@ -141,31 +170,62 @@ class Analog_F0andF1(Analysis):
       """
 
       def perform_analysis(self):
-            dsv1 = queries.param_filter_query(self.datastore,st_name='FullfieldDriftingSinusoidalGrating')
-            for sheet in dsv1.sheets():
-                dsv = queries.param_filter_query(dsv1, sheet_name=sheet)
-                segs1, stids = colapse(dsv.get_segments(),dsv.get_stimuli(),parameter_list=['trial'],allow_non_identical_objects=True)
-                for segs,st in zip(segs1, stids):
-                    first_analog_signal = segs[0].get_esyn(segs[0].get_stored_esyn_ids()[0])
+            
+            for sheet in self.datastore.sheets():
+                dsv = queries.param_filter_query(self.datastore, sheet_name=sheet)
+                if len(dsv.get_segments()) != 0:
+                  assert queries.equal_stimulus_type(self.datastore) , "Data store has to contain only recordings to the same stimulus type"
+                  st = self.datastore.get_stimuli()[0]
+                  assert MozaikParametrized.idd(st).getParams().has_key('temporal_frequency'), "The stimulus has to have parameter temporal_frequency which is used as first harmonic"
+
+                  segs1, stids = colapse(dsv.get_segments(),dsv.get_stimuli(),parameter_list=['trial'],allow_non_identical_objects=True)
+                  for segs,st in zip(segs1, stids):
+                      first_analog_signal = segs[0].get_esyn(segs[0].get_stored_esyn_ids()[0])
+                      duration = first_analog_signal.t_stop - first_analog_signal.t_start
+                      frequency = MozaikParametrized.idd(st).temporal_frequency * MozaikParametrized.idd(st).getParams()['temporal_frequency'].units
+                      period = 1/frequency
+                      period = period.rescale(first_analog_signal.t_start.units)
+                      cycles = duration / period
+                      first_har = int(round(cycles))
+                      
+                      e_f0 = [abs(numpy.fft.fft(numpy.mean([seg.get_esyn(idd) for seg in segs],axis=0).flatten())[0]/len(segs[0].get_esyn(idd))) for idd in segs[0].get_stored_esyn_ids()]
+                      i_f0 = [abs(numpy.fft.fft(numpy.mean([seg.get_isyn(idd) for seg in segs],axis=0).flatten())[0]/len(segs[0].get_isyn(idd))) for idd in segs[0].get_stored_isyn_ids()]
+                      v_f0 = [abs(numpy.fft.fft(numpy.mean([seg.get_vm(idd) for seg in segs],axis=0).flatten())[0]/len(segs[0].get_vm(idd))) for idd in segs[0].get_stored_vm_ids()]
+                      e_f1 = [2*abs(numpy.fft.fft(numpy.mean([seg.get_esyn(idd) for seg in segs],axis=0).flatten())[first_har]/len(segs[0].get_esyn(idd))) for idd in segs[0].get_stored_esyn_ids()]
+                      i_f1 = [2*abs(numpy.fft.fft(numpy.mean([seg.get_isyn(idd) for seg in segs],axis=0).flatten())[first_har]/len(segs[0].get_isyn(idd))) for idd in segs[0].get_stored_isyn_ids()]
+                      v_f1 = [2*abs(numpy.fft.fft(numpy.mean([seg.get_vm(idd) for seg in segs],axis=0).flatten())[first_har]/len(segs[0].get_vm(idd))) for idd in segs[0].get_stored_vm_ids()]
+                      
+                      cond_units = segs[0].get_esyn(segs[0].get_stored_esyn_ids()[0]).units
+                      vm_units = segs[0].get_vm(segs[0].get_stored_esyn_ids()[0]).units
+                      
+                      self.datastore.full_datastore.add_analysis_result(PerNeuronValue(e_f0,segs[0].get_stored_esyn_ids(),cond_units,value_name = 'F0_Exc_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+                      self.datastore.full_datastore.add_analysis_result(PerNeuronValue(i_f0,segs[0].get_stored_isyn_ids(),cond_units,value_name = 'F0_Inh_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+                      self.datastore.full_datastore.add_analysis_result(PerNeuronValue(v_f0,segs[0].get_stored_vm_ids(),vm_units,value_name = 'F0_Vm',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+                      self.datastore.full_datastore.add_analysis_result(PerNeuronValue(e_f1,segs[0].get_stored_esyn_ids(),cond_units,value_name = 'F1_Exc_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+                      self.datastore.full_datastore.add_analysis_result(PerNeuronValue(i_f1,segs[0].get_stored_isyn_ids(),cond_units,value_name = 'F1_Inh_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+                      self.datastore.full_datastore.add_analysis_result(PerNeuronValue(v_f1,segs[0].get_stored_vm_ids(),vm_units,value_name = 'F1_Vm',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+
+                # AnalogSignalList part 
+                dsv = queries.param_filter_query(dsv, sheet_name=sheet,name='AnalogSignalList')
+                for asl in dsv.get_analysis_result():
+                    assert MozaikParametrized.idd(asl.stimulus_id).getParams().has_key('temporal_frequency'), "The stimulus has to have parameter temporal_frequency which is used as first harmonic"
+
+                    signals = asl.asl
+                    first_analog_signal = signals[0]
                     duration = first_analog_signal.t_stop - first_analog_signal.t_start
-                    frequency = MozaikParametrized.idd(st).temporal_frequency * MozaikParametrized.idd(st).params()['temporal_frequency'].units
+                    frequency = MozaikParametrized.idd(asl.stimulus_id).temporal_frequency * MozaikParametrized.idd(asl.stimulus_id).getParams()['temporal_frequency'].units
                     period = 1/frequency
                     period = period.rescale(first_analog_signal.t_start.units)
                     cycles = duration / period
-                    first_har = round(cycles)
-                    e_f0 = [abs(numpy.fft.fft(numpy.mean([seg.get_esyn(idd) for seg in segs],axis=0).flatten())[0]/len(segs[0].get_esyn(idd))) for idd in segs[0].get_stored_esyn_ids()]
-                    i_f0 = [abs(numpy.fft.fft(numpy.mean([seg.get_isyn(idd) for seg in segs],axis=0).flatten())[0]/len(segs[0].get_esyn(idd))) for idd in segs[0].get_stored_isyn_ids()]
-                    v_f0 = [abs(numpy.fft.fft(numpy.mean([seg.get_vm(idd) for seg in segs],axis=0).flatten())[0]/len(segs[0].get_esyn(idd))) for idd in segs[0].get_stored_vm_ids()]
-                    e_f1 = [2*abs(numpy.fft.fft(numpy.mean([seg.get_esyn(idd) for seg in segs],axis=0).flatten()/len(segs[0].get_esyn(idd)))[first_har]) for idd in segs[0].get_stored_esyn_ids()]
-                    i_f1 = [2*abs(numpy.fft.fft(numpy.mean([seg.get_isyn(idd) for seg in segs],axis=0).flatten()/len(segs[0].get_esyn(idd)))[first_har]) for idd in segs[0].get_stored_isyn_ids()]
-                    v_f1 = [2*abs(numpy.fft.fft(numpy.mean([seg.get_vm(idd) for seg in segs],axis=0).flatten()/len(segs[0].get_esyn(idd)))[first_har]) for idd in segs[0].get_stored_vm_ids()]
+                    first_har = int(round(cycles))
+
+                    f0 = [abs(numpy.fft.fft(signal)[0]) for signal in signals]
+                    f1 = [2*abs(numpy.fft.fft(signal)[first_har]) for signal in signals]
                     
-                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(e_f0,segs[0].get_stored_esyn_ids(),first_analog_signal.units,value_name = 'F0_Exc_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
-                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(i_f0,segs[0].get_stored_isyn_ids(),first_analog_signal.units,value_name = 'F0_Inh_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
-                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(v_f0,segs[0].get_stored_vm_ids(),first_analog_signal.units,value_name = 'F0_Vm',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
-                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(e_f1,segs[0].get_stored_esyn_ids(),first_analog_signal.units,value_name = 'F1_Exc_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
-                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(i_f1,segs[0].get_stored_isyn_ids(),first_analog_signal.units,value_name = 'F1_Inh_Cond',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
-                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(v_f1,segs[0].get_stored_vm_ids(),first_analog_signal.units,value_name = 'F1_Vm',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(st)))        
+                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(f0,asl.ids,asl.y_axis_units,value_name = 'F0('+ asl.y_axis_name + ')',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=asl.stimulus_id))                            
+                    self.datastore.full_datastore.add_analysis_result(PerNeuronValue(f1,asl.ids,asl.y_axis_units,value_name = 'F1('+ asl.y_axis_name + ')',sheet_name=sheet,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=asl.stimulus_id))                                                
+    
+
 
 class LocalHomogeneityIndex(Analysis):      
     """
@@ -204,5 +264,119 @@ class LocalHomogeneityIndex(Analysis):
                                    period=None,
                                    analysis_algorithm=self.__class__.__name__,
                                    stimulus_id=str(pnv.stimulus_id)))
+
+class SizeTuningAnalysis(Analysis):
+      """
+      Calculates the size tuning properties   
+      """   
+        
+      required_parameters = ParameterSet({
+          'neurons': list,  # list of neurons for which to compute this (normally this analysis will only makes sense for neurons for which the sine grating disk stimulus has been optimally oriented)
+          'sheet_name' : str
+      })      
+        
+      
+      def perform_analysis(self):
+                dsv = queries.param_filter_query(self.datastore,identifier='PerNeuronValue',sheet_name=self.parameters.sheet_name,st_name='DriftingSinusoidalGratingDisk')
+                
+                if len(dsv.get_analysis_result()) == 0: return
+                assert queries.ads_with_equal_stimulus_type(dsv)
+                assert queries.equal_ads(dsv,except_params=['stimulus_id'])
+                self.pnvs = dsv.get_analysis_result()
+                
+                # get stimuli
+                self.st = [MozaikParametrized.idd(s.stimulus_id) for s in self.pnvs]
+                
+                
+                # transform the pnvs into a dictionary of tuning curves according along the 'radius' parameter
+                # also make sure they are ordered according to the first pnv's idds 
+                
+                self.tc_dict = colapse_to_dictionary([z.get_value_by_id(self.parameters.neurons) for z in self.pnvs],self.st,"radius")
+                for k in self.tc_dict.keys():
+                        crf_sizes = []
+                        supp_sizes= []
+                        sis = []
+                        max_responses=[]
+                        
+                        # we will do the calculation neuron by neuron
+                        for i in xrange(0,len(self.parameters.neurons)):
+                            
+                            rads = self.tc_dict[k][0]
+                            values = numpy.array([a[i] for a in self.tc_dict[k][1]])
+                            
+                            # sort them based on radiuses
+                            rads , values = zip(*sorted(zip(rads,values)))
+                                                        
+                            max_response = numpy.max(values)
+                            crf_index  = numpy.argmax(values)
+                            crf_size = rads[crf_index]
+                            
+                            if crf_index < len(values)-1:
+                                supp_index = crf_index+numpy.argmax(values[crf_index+1:])+1
+                            else:
+                                supp_index = len(values)-1
+                            supp_size = rads[supp_index]                                
+                            
+                            if values[crf_index] != 0:
+                                si = (values[crf_index]-values[supp_index])/values[crf_index]
+                            else:
+                                si = 0
+                            
+                            crf_sizes.append(crf_size)
+                            supp_sizes.append(supp_size)
+                            sis.append(si)
+                            max_responses.append(max_response)
+                            
+                            
+                        self.datastore.full_datastore.add_analysis_result(PerNeuronValue(max_responses,self.parameters.neurons,self.st[0].getParams()["radius"].units,value_name = 'Max. response of ' + self.pnvs[0].value_name ,sheet_name=self.parameters.sheet_name,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(k)))
+                        self.datastore.full_datastore.add_analysis_result(PerNeuronValue(crf_sizes,self.parameters.neurons,self.st[0].getParams()["radius"].units,value_name = 'Max. facilitation radius of ' + self.pnvs[0].value_name ,sheet_name=self.parameters.sheet_name,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(k)))
+                        self.datastore.full_datastore.add_analysis_result(PerNeuronValue(supp_sizes,self.parameters.neurons,self.st[0].getParams()["radius"].units,value_name = 'Max. suppressive radius of ' + self.pnvs[0].value_name ,sheet_name=self.parameters.sheet_name,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(k)))
+                        self.datastore.full_datastore.add_analysis_result(PerNeuronValue(sis,self.parameters.neurons,None,value_name = 'Suppression index of ' + self.pnvs[0].value_name ,sheet_name=self.parameters.sheet_name,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(k)))
+                        
+
+class OCTCTuningAnalysis(Analysis):
+      """
+      Calculates the Orientation Contrast tuning properties.
+      """   
+        
+      required_parameters = ParameterSet({
+          'neurons': list,  # list of neurons for which to compute this (normally this analysis will only makes sense for neurons for which the sine grating disk stimulus has been optimally oriented)
+          'sheet_name' : str
+      })      
+        
+      
+      def perform_analysis(self):
+                dsv = queries.param_filter_query(self.datastore,identifier='PerNeuronValue',sheet_name=self.parameters.sheet_name,st_name='DriftingSinusoidalGratingCenterSurroundStimulus')
+                
+                if len(dsv.get_analysis_result()) == 0: return
+                assert queries.ads_with_equal_stimulus_type(dsv)
+                assert queries.equal_ads(dsv,except_params=['stimulus_id'])
+                self.pnvs = dsv.get_analysis_result()
+                
+                # get stimuli
+                self.st = [MozaikParametrized.idd(s.stimulus_id) for s in self.pnvs]
+                
+                
+                # transform the pnvs into a dictionary of tuning curves according along the 'surround_orientation' parameter
+                # also make sure they are ordered according to the first pnv's idds 
+                
+                self.tc_dict = colapse_to_dictionary([z.get_value_by_id(self.parameters.neurons) for z in self.pnvs],self.st,"surround_orientation")
+                for k in self.tc_dict.keys():
+                        sis = []
+                        surround_tuning=[]
+                        
+                        # we will do the calculation neuron by neuron
+                        for i in xrange(0,len(self.parameters.neurons)):
+                            
+                            ors = self.tc_dict[k][0]
+                            values = numpy.array([a[i] for a in self.tc_dict[k][1]])
+                            d={}
+                            for o,v in zip(ors,values):
+                                d[o] = v
+                            sis.append(d[0] / d[numpy.pi/2])
+                            
+                            
+                        self.datastore.full_datastore.add_analysis_result(PerNeuronValue(sis,self.parameters.neurons,None,value_name = 'Suppression index of ' + self.pnvs[0].value_name ,sheet_name=self.parameters.sheet_name,tags=self.tags,period=None,analysis_algorithm=self.__class__.__name__,stimulus_id=str(k)))
+
 
 
