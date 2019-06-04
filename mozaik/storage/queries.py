@@ -87,7 +87,7 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
     kwargs = dict([(k,kwargs[k]) for k in kwargs.keys() if k[0:3] != 'st_'])
     
     # seg_st = [MozaikParametrized.idd(seg.annotations['stimulus']) for seg in dsv.block.segments]
-    seg_st = [MozaikParametrized.idd(seg.annotations['stimulus'][0]+", 'name':'"+seg.annotations['sheet_name']"'") for seg in dsv.block.segments]
+    seg_st = [MozaikParametrized.idd(seg.annotations['stimulus'][0]+", 'name':'"+seg.annotations['sheet_name']+"'") for seg in dsv.block.segments]
     ads_st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results if ads.stimulus_id != None]
     # {'stimulus': '{"module_path" :"mozaik.stimuli",}', 'sheet_name': 'Inh_Layer'}
     ads_st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results if ads.stimulus_id != None]
