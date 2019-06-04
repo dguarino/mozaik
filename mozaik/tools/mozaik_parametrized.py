@@ -310,8 +310,9 @@ class MozaikParametrized(Parameterized):
         
         params = eval(obj)
         print params
-        name = params.pop("name")
         module_path = params.pop("module_path")
+        name = params.pop("mozaik.stimuli")
+        # name = params.pop("name")
         
         if (module_path,name) in MozaikParametrized._module_cache:
             z = MozaikParametrized._module_cache[(module_path,name)]
