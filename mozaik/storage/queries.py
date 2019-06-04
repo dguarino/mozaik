@@ -8,6 +8,7 @@ from mozaik.core import ParametrizedObject
 from parameters import ParameterSet
 from mozaik.tools.mozaik_parametrized import colapse,  MozaikParametrized, filter_query, matching_parametrized_object_params
 import numpy
+import json
 import mozaik
 
 logger = mozaik.getMozaikLogger()
@@ -87,7 +88,7 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
     
     # seg_st = [MozaikParametrized.idd(seg.annotations['stimulus']) for seg in dsv.block.segments]
     # ads_st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results if ads.stimulus_id != None]
-    seg_st = [MozaikParametrized.idd(seg.annotations) for seg in dsv.block.segments]
+    seg_st = [MozaikParametrized.idd(json.dumps(seg.annotations)) for seg in dsv.block.segments]
     ads_st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results if ads.stimulus_id != None]
     if 'sheet_name' in set(kwargs):
        if len(kwargs) == 1:
