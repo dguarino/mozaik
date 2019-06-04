@@ -249,7 +249,6 @@ class Kick(DirectStimulator):
             self.sheet.sim.Projection(self.ssae, self.sheet.pop,self.sheet.sim.OneToOneConnector(),synapse_type=exc_syn,receptor_type='excitatory') 
 
     def prepare_stimulation(self,duration,offset):
-        # print self.parameters
         if (self.parameters.exc_firing_rate != 0 and self.parameters.exc_weight != 0):
            for j,i in enumerate(self.to_stimulate_indexes):
                if self.parameters.drive_period < duration:
