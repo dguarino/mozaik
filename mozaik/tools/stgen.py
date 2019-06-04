@@ -225,6 +225,7 @@ class StGen:
             number = min(5+numpy.ceil(2*n),100)
 
         if number > 0:
+            print "scale",int(1.0/rate), int(number)
             isi = self.rng.exponential(int(1.0/rate), int(number))*1000.0
             if number > 1:
                 spikes = numpy.add.accumulate(isi)
