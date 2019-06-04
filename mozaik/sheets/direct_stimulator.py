@@ -258,7 +258,7 @@ class Kick(DirectStimulator):
                else:
                    times = [0]  
                    rate = [self.parameters.exc_firing_rate] 
-               pp = self.stgene[j].inh_poisson_generator(numpy.array(rate),numpy.array(times),t_stop=duration).spike_times
+               pp = self.stgene[j].exc_poisson_generator(numpy.array(rate),numpy.array(times),t_stop=duration).spike_times
                a = offset + numpy.array(pp)
                self.ssae[i].set_parameters(spike_times=Sequence(a.astype(float)))
 
