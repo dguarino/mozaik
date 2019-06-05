@@ -34,3 +34,8 @@ RUN python setup.py install
 # python run.py nest 2 param/defaults 'test'
 # mpirun -np 2 python run.py nest 2 param/defaults 'test'
 
+#######################################################
+# T2
+RUN $VENV/bin/pip install oct2py
+WORKDIR $HOME
+RUN git clone https://github.com/dguarino/T2.git
