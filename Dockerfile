@@ -36,7 +36,7 @@ RUN python setup.py install
 
 #######################################################
 # T2
-RUN $VENV/bin/pip install oct2py
+##RUN $VENV/bin/pip install oct2py
 WORKDIR $HOME
 RUN git clone https://github.com/dguarino/T2.git
 
