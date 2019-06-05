@@ -29,7 +29,7 @@ class PyNNDistribution(RandomDistribution):
       The params is a tuple of parameters of the corresponding numpy distribution (see pyNN.random.RandomDistribution)
       For the rest of the parameters see pyNN.random.RandomDistribution
       """
-      def __init__(self,name,**params):
+      def __init__(self,name,params):
             print name, params
             RandomDistribution.__init__(self,name,**params)  
 
