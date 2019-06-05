@@ -6,7 +6,7 @@ in which case this code should become obsolete and mozaik should fully switch to
 """
 
 from parameters import ParameterSet, ParameterRange, ParameterTable, ParameterReference
-from pyNN.random import RandomDistribution, NumpyRNG
+from pyNN.random import available_distributions, RandomDistribution, NumpyRNG
 import urllib, copy, warnings, numpy, numpy.random  # to be replaced with srblib
 from urlparse import urlparse
 from parameters.random import ParameterDist, GammaDist, UniformDist, NormalDist
@@ -30,8 +30,8 @@ class PyNNDistribution(RandomDistribution):
       For the rest of the parameters see pyNN.random.RandomDistribution
       """
       def __init__(self,name,**params):
-            print name, params
-            RandomDistribution.__init__(self,name,params)  
+            print name, available_distributions[name], params, **params
+            RandomDistribution.__init__(self,name,**params)  
 
 class LogNormalDistribution(ParameterDist):
     """
