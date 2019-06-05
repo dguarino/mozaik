@@ -93,7 +93,8 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
         print  seg.annotations
         stidd = {}
         stidd['name'] = seg.annotations['sheet_name']
-        stidd['module_path'] = seg.annotations['stimulus']['module_path']
+        st_p = eval(seg.annotations['stimulus'])
+        stidd['module_path'] = st_p['module_path']
         seg_st.append(str(stidd))
     # seg_st = ["'module_path':'mozaik.stimuli','name':'"+seg.annotations['sheet_name']+"'" for seg in dsv.block.segments]
     # {'stimulus': '{"module_path":"mozaik.stimuli",}', 'sheet_name':'Inh_Layer'}
