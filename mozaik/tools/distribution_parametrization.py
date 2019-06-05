@@ -31,9 +31,9 @@ class PyNNDistribution(RandomDistribution):
       """
       def __init__(self,name,**params):
             p = {}
-            p.keys(available_distributions[name])
-            p.values(**params)
-            print name, available_distributions[name], params, p
+            for k, v in zip(available_distributions[name], params['params']):
+                p[k] = v
+            print name, available_distributions[name], params['params'], p
             RandomDistribution.__init__(self,name,p)  
             # RandomDistribution.__init__(self,name,**params)  
 
