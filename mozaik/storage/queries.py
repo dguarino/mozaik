@@ -90,6 +90,7 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
     # seg_st = [MozaikParametrized.idd(seg.annotations['stimulus'][1:-2]+", 'name':'"+seg.annotations['sheet_name']+"'") for seg in dsv.block.segments]
     seg_st = []
     for seg in dsv.block.segments:
+        print  seg.annotations
         stidd = {}
         stidd['name'] = seg.annotations['sheet_name']
         stidd['module_path'] = seg.annotations['stimulus']['module_path']
