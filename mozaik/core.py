@@ -39,6 +39,7 @@ class ParametrizedObject(object):
         """
         
         def walk(tP, P, section=None):
+            print set(tP.keys()) != set(P.keys())
             if set(tP.keys()) != set(P.keys()):
                 raise KeyError("Invalid parameters for %s.%s Required: %s. Supplied: %s. Difference: %s" % (self.__class__.__name__, section or '', tP.keys(), P.keys(), set(tP.keys()) ^ set(P.keys())))
             for k, v in tP.items():
@@ -63,8 +64,8 @@ class ParametrizedObject(object):
             # we first need to collect the required parameters from all the classes along the parent path
             new_param_dict = {}
             for cls in self.__class__.__mro__:
-            # some parents might not define required_parameters
-            # if they do not require one or they are the object class
+                # some parents might not define required_parameters
+                # if they do not require one or they are the object class
                 if hasattr(cls, 'required_parameters'):
                     new_param_dict.update(cls.required_parameters.as_dict())
             walk(ParameterSet(new_param_dict), parameters)
