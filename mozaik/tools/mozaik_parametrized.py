@@ -69,7 +69,8 @@ class SString(String):
     just like SInteger and SNumber, but automatically sets them to None.
     """
 
-    __slots__ = ['units','period']    
+    __slots__ = ['units','period']
+
     def __init__(self, **params):
         params.setdefault('default',None)        
         super(SString, self).__init__(allow_None=True,
@@ -116,7 +117,7 @@ class MozaikParametrized(Parameterized):
     we will use extensively (see above). 
     
     Currently the main use of this parametrization is for defining stimuli and 
-    analysis data structures. It allows us to write general and powerfull querying 
+    analysis data structures. It allows us to write general and powerful querying 
     functions, automatically handle parameter units and parameter names.
     
     For the usage of the :class:`.MozaikParametrized` class refer to the `Parameterized`
@@ -298,7 +299,7 @@ class MozaikParametrized(Parameterized):
     @classmethod
     def idd(cls,obj):
         """
-        This class method is used in concjuction with the MozaikParametrized.__str__ function that stores all the parameters and the class and module of an object.
+        This class method is used in conjuction with the MozaikParametrized.__str__ function that stores all the parameters and the class and module of an object.
         This method restores a 'Shell' object out of this str. The returned object will be of the same type as the original object and will contain all its original parameters
         and their values, BUT WILL NOT BE INITIALIZED and so should not be used for anything else other than examining it's parameters!!!!
         

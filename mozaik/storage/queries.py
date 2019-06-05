@@ -86,10 +86,15 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
     st_kwargs = dict([(k[3:],kwargs[k]) for k in kwargs.keys() if k[0:3] == 'st_'])
     kwargs = dict([(k,kwargs[k]) for k in kwargs.keys() if k[0:3] != 'st_'])
     
-    # seg_st = [MozaikParametrized.idd(seg.annotations['stimulus']) for seg in dsv.block.segments]
+    # seg_st = [MozaikParametrized.idd(seg.annotations['stimulus']) for seg in dsv.block.segments] # DG: original
     # seg_st = [MozaikParametrized.idd(seg.annotations['stimulus'][1:-2]+", 'name':'"+seg.annotations['sheet_name']+"'") for seg in dsv.block.segments]
-    seg_st = ["'module_path':'mozaik.stimuli','name':'"+seg.annotations['sheet_name']+"'" for seg in dsv.block.segments]
-    ads_st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results if ads.stimulus_id != None]
+    seg_st = []
+    for seg in dsv.block.segments:
+        stidd = {}
+        stidd['name'] = seg.annotations['sheet_name']
+        stidd['module_path'] = seg.annotations['stimulus']['module_path']
+        seg_st.append(str(stidd))
+    # seg_st = ["'module_path':'mozaik.stimuli','name':'"+seg.annotations['sheet_name']+"'" for seg in dsv.block.segments]
     # {'stimulus': '{"module_path":"mozaik.stimuli",}', 'sheet_name':'Inh_Layer'}
     ads_st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results if ads.stimulus_id != None]
     if 'sheet_name' in set(kwargs):
