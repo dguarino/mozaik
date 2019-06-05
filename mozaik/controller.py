@@ -113,7 +113,7 @@ def run_workflow(simulation_name, model_class, create_experiments):
     else:
         raise ValueError("Usage: runscript simulator_name num_threads parameter_file_path modified_parameter_path_1 modified_parameter_value_1 ... modified_parameter_path_n modified_parameter_value_n simulation_run_name")
     
-    print parameters_url, modified_parameters
+    # print parameters_url, modified_parameters
     parameters = load_parameters(parameters_url,modified_parameters)
 
     p={}
