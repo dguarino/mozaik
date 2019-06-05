@@ -30,7 +30,7 @@ class PyNNDistribution(RandomDistribution):
       For the rest of the parameters see pyNN.random.RandomDistribution
       """
       def __init__(self,name,**params):
-            print name, available_distributions[name], params, **params
+            print name, available_distributions[name], params
             RandomDistribution.__init__(self,name,**params)  
 
 class LogNormalDistribution(ParameterDist):
