@@ -84,7 +84,7 @@ class MozaikExtendedParameterSet(ParameterSet):
         
         D=None
         try:
-            print "read_from_str", s, global_dict
+            # print "read_from_str", s, global_dict
             D = eval(s, global_dict)
         except SyntaxError as e:
             raise SyntaxError("Invalid string for ParameterSet definition: %s\n%s" % (s,e))
