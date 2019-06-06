@@ -36,8 +36,8 @@ RUN python setup.py install
 
 #######################################################
 # T2
-##RUN $VENV/bin/pip install oct2py
 WORKDIR $HOME
 RUN git clone -b merged_JA_DG https://github.com/dguarino/T2.git
 
+# testing
 # python run_size_feedforward.py nest 8 param/defaults_mea 'data_size_feedforward_vsdi'
