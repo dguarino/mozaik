@@ -66,6 +66,7 @@ class ParametrizedObject(object):
                 # some parents might not define required_parameters
                 # if they do not require one or they are the object class
                 if hasattr(cls, 'required_parameters'):
+                    print cls
                     new_param_dict.update(cls.required_parameters.as_dict())
             walk(ParameterSet(new_param_dict), parameters)
         except AssertionError as err:
