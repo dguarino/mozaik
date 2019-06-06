@@ -225,7 +225,7 @@ class StGen:
             number = min(5+numpy.ceil(2*n),100)
 
         if number > 0:
-            # print "scale", rate, int(1.0/rate), int(number) # rate is never <1. therefore the original int(1/rate) is always 0
+            # print "scale", rate, int(1.0/rate), int(number) # rate can be <1.
             # isi = self.rng.exponential(int(1.0/rate), int(number))*1000.0 # DG: original
             isi = self.rng.exponential((1.0/rate), int(number))*1000.0 # DG: allowing 1./rate to be a float <1
             if number > 1:
