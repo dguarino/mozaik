@@ -181,8 +181,6 @@ class VisualCorticalUniformSheet(SheetWithMagnificationFactor):
                                    origin=(0.0, 0.0, 0.0),
                                    rng=mozaik.pynn_rng)
 
-        print parameters, rs, self.name
-
         self.pop = self.sim.Population(int(parameters.sx*parameters.sy/1000000*parameters.density),
                                        getattr(self.model.sim, self.parameters.cell.model),
                                        self.parameters.cell.params,

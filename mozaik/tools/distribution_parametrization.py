@@ -31,13 +31,8 @@ class PyNNDistribution(RandomDistribution):
       """
       def __init__(self,name,**params):
             #RandomDistribution.__init__(self,name,**params) # DG: original
-            RandomDistribution.__init__(self,name,params['params']) # DG: original
-            # p = {}
-            # for k, v in zip(available_distributions[name], params['params']):
-            #     p[k] = v
-            # # print name, available_distributions[name], params['params'], p
-            # RandomDistribution.__init__(self,name,p) # DG: passed by key:value
-            # RandomDistribution.__init__(self,name,p) # DG: passed by key:value
+            RandomDistribution.__init__(self,name,params['params']) # DG: values
+
 
 class LogNormalDistribution(ParameterDist):
     """
