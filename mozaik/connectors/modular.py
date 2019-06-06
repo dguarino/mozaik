@@ -248,7 +248,8 @@ class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnect
 
     required_parameters = ParameterSet({
         'annotation_reference_name': str,
-        'num_samples': int,
+        # 'num_samples': int,
+        'num_samples': ParameterDist,
         'base_weight' : ParameterDist,
     })
 
