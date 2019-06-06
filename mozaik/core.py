@@ -69,8 +69,7 @@ class ParametrizedObject(object):
                     new_param_dict.update(cls.required_parameters.as_dict())
             walk(ParameterSet(new_param_dict), parameters)
         except AssertionError as err:
-            raise Exception("%s\nInvalid parameters.\nNeed %s\nSupplied %s" % (
-                                err, ParameterSet(new_param_dict), parameters))
+            raise Exception("%s\nInvalid parameters.\nNeed %s\nSupplied %s" % (err, ParameterSet(new_param_dict), parameters))
 
 
     def __init__(self, parameters):
