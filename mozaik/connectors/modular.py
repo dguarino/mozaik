@@ -258,12 +258,10 @@ class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnect
             samples = self.target.get_neuron_annotation(i,self.parameters.annotation_reference_name)
             weights = self._obtain_weights(i)
             delays = self._obtain_delays(i)
-            # if self.parameters.num_samples == 0: # DG: original
-            if self.parameters.num_samples.next() == 0: # DG: also all lines below
+            if self.parameters.num_samples.next() == 0:
                 co = Counter(sample_from_bin_distribution(weights, int(samples)))
             else:
-                assert self.parameters.num_samples.next() > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples.next(),2*int(samples)))
-                a = sample_from_bin_distribution(weights, int(self.parameters.num_samples.next() - 2*int(samples)))
+                a = sample_from_bin_distribution(weights, int(self.parameters.num_samples.next()))
                 co = Counter(a)
             v = v + numpy.sum(co.values())
             cl.extend([(int(k),int(i),self.weight_scaler*self.parameters.base_weight.next()[0]*co[k],delays[k]) for k in co.keys()])
@@ -279,8 +277,7 @@ class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnect
             if self.parameters.num_samples.next() == 0:
                 co = Counter(sample_from_bin_distribution(weights, int(samples)))
             else:
-                assert self.parameters.num_samples.next() > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples.next(),2*int(samples)))
-                co = Counter(sample_from_bin_distribution(weights, int(self.parameters.num_samples.next() - 2*int(samples))))
+                co = Counter(sample_from_bin_distribution(weights, int(self.parameters.num_samples.next())))
             v = v + numpy.sum(co.values())
             k = co.keys()
             a = numpy.array([k,numpy.zeros(len(k))+i,self.weight_scaler*numpy.multiply(self.parameters.base_weight.next(len(k)),co.values()),numpy.array(delays)[k]])
@@ -301,3 +298,52 @@ class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnect
                                 receptor_type=self.parameters.target_synapses)
         else:
             logger.warning("%s(%s): empty projection - pyNN projection not created." % (self.name,self.__class__.__name__))
+
+    # DG: original
+    # def worker(ref,idxs):
+    #     for i in idxs:
+    #         samples = self.target.get_neuron_annotation(i,self.parameters.annotation_reference_name)
+    #         weights = self._obtain_weights(i)
+    #         delays = self._obtain_delays(i)
+    #         if self.parameters.num_samples == 0:
+    #             co = Counter(sample_from_bin_distribution(weights, int(samples)))
+    #         else:
+    #             assert self.parameters.num_samples > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples,2*int(samples)))
+    #             a = sample_from_bin_distribution(weights, int(self.parameters.num_samples - 2*int(samples)))
+    #             co = Counter(a)
+    #         v = v + numpy.sum(co.values())
+    #         cl.extend([(int(k),int(i),self.weight_scaler*self.parameters.base_weight.next()[0]*co[k],delays[k]) for k in co.keys()])
+    #     return cl
+
+    # def _connect(self):
+    #     cl = []
+    #     v = 0
+    #     for i in numpy.nonzero(self.target.pop._mask_local)[0]:
+    #         samples = self.target.get_neuron_annotation(i,self.parameters.annotation_reference_name)
+    #         weights = self._obtain_weights(i)
+    #         delays = self._obtain_delays(i)
+    #         if self.parameters.num_samples == 0:
+    #             co = Counter(sample_from_bin_distribution(weights, int(samples)))
+    #         else:
+    #             assert self.parameters.num_samples > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples,2*int(samples)))
+    #             co = Counter(sample_from_bin_distribution(weights, int(self.parameters.num_samples - 2*int(samples))))
+    #         v = v + numpy.sum(co.values())
+    #         k = co.keys()
+    #         a = numpy.array([k,numpy.zeros(len(k))+i,self.weight_scaler*numpy.multiply(self.parameters.base_weight.next(len(k)),co.values()),numpy.array(delays)[k]])
+    #         cl.append(a)
+
+    #     cl = numpy.hstack(cl).T
+    #     method = self.sim.FromListConnector(cl)
+        
+    #     logger.warning("%s(%s): %g connections were created, %g per target neuron [%g]" % (self.name,self.__class__.__name__,len(cl),len(cl)/len(numpy.nonzero(self.target.pop._mask_local)[0]),v/len(numpy.nonzero(self.target.pop._mask_local)[0])))
+        
+    #     if len(cl) > 0:
+    #         self.proj = self.sim.Projection(
+    #                             self.source.pop,
+    #                             self.target.pop,
+    #                             method,
+    #                             synapse_type=self.init_synaptic_mechanisms(),
+    #                             label=self.name,
+    #                             receptor_type=self.parameters.target_synapses)
+    #     else:
+    #         logger.warning("%s(%s): empty projection - pyNN projection not created." % (self.name,self.__class__.__name__))
