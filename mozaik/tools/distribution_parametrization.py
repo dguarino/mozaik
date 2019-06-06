@@ -31,6 +31,7 @@ class PyNNDistribution(RandomDistribution):
       """
       def __init__(self,name,**params):
             #RandomDistribution.__init__(self,name,**params) # DG: original
+            print params
             RandomDistribution.__init__(self,name,params['params']) # DG: values
 
 
