@@ -248,8 +248,8 @@ class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnect
 
     required_parameters = ParameterSet({
         'annotation_reference_name': str,
-        # 'num_samples': int,
-        'num_samples': ParameterDist,
+        # 'num_samples': int, # DG: original
+        'num_samples': ParameterDist, # DG: as required by GaborConnector
         'base_weight' : ParameterDist,
     })
 
@@ -258,11 +258,12 @@ class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnect
             samples = self.target.get_neuron_annotation(i,self.parameters.annotation_reference_name)
             weights = self._obtain_weights(i)
             delays = self._obtain_delays(i)
-            if self.parameters.num_samples == 0:
+            # if self.parameters.num_samples == 0: # DG: original
+            if self.parameters.num_samples.next() == 0: # DG: also all lines below
                 co = Counter(sample_from_bin_distribution(weights, int(samples)))
             else:
-                assert self.parameters.num_samples > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples,2*int(samples)))
-                a = sample_from_bin_distribution(weights, int(self.parameters.num_samples - 2*int(samples)))
+                assert self.parameters.num_samples.next() > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples.next(),2*int(samples)))
+                a = sample_from_bin_distribution(weights, int(self.parameters.num_samples.next() - 2*int(samples)))
                 co = Counter(a)
             v = v + numpy.sum(co.values())
             cl.extend([(int(k),int(i),self.weight_scaler*self.parameters.base_weight.next()[0]*co[k],delays[k]) for k in co.keys()])
@@ -275,11 +276,11 @@ class ModularSamplingProbabilisticConnectorAnnotationSamplesCount(ModularConnect
             samples = self.target.get_neuron_annotation(i,self.parameters.annotation_reference_name)
             weights = self._obtain_weights(i)
             delays = self._obtain_delays(i)
-            if self.parameters.num_samples == 0:
+            if self.parameters.num_samples.next() == 0:
                 co = Counter(sample_from_bin_distribution(weights, int(samples)))
             else:
-                assert self.parameters.num_samples > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples,2*int(samples)))
-                co = Counter(sample_from_bin_distribution(weights, int(self.parameters.num_samples - 2*int(samples))))
+                assert self.parameters.num_samples.next() > 2*int(samples), ("%s: %d %d" % (self.name,self.parameters.num_samples.next(),2*int(samples)))
+                co = Counter(sample_from_bin_distribution(weights, int(self.parameters.num_samples.next() - 2*int(samples))))
             v = v + numpy.sum(co.values())
             k = co.keys()
             a = numpy.array([k,numpy.zeros(len(k))+i,self.weight_scaler*numpy.multiply(self.parameters.base_weight.next(len(k)),co.values()),numpy.array(delays)[k]])
