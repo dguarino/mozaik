@@ -28,7 +28,7 @@ pynn_rng = None
 mpi_comm = None
 MPI_ROOT = 0
 
-def setup_mpi():
+def setup_mpi(mozaik_seed=513,pynn_seed=1023):
     """
     Tests the presence of MPI and sets up mozaik wide random number generator.
     
@@ -48,11 +48,9 @@ def setup_mpi():
     global pynn_rng
     global mpi_comm
     from pyNN.random import NumpyRNG
-    pynn_rng = NumpyRNG(seed=1023)
-    # pynn_rng = NumpyRNG(seed=23)
-    rng = numpy.random.RandomState()
-    rng.seed(513)
-    # rng.seed(51)
+    pynn_rng = NumpyRNG(seed=pynn_seed)
+    rng = numpy.random.RandomState(mozaik_seed)
+
     try:
         from mpi4py import MPI
     except ImportError:
@@ -75,10 +73,9 @@ def get_seeds(size=None):
 
     We recommand users to use this method whenever seeding a new random generator. It is 
     important that the same number of seeds are requested in each MPI process to ensure 
-    reproducability of simulations!
+    reproducibility of simulations!
     """
-    return rng.randint(9223372036854775807,size=size)
-    # return rng.randint(922337203,size=size)
+    return rng.randint(2**32-1,size=size)
 
 def getMozaikLogger():
     """
