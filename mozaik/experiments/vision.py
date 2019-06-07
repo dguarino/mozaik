@@ -442,7 +442,7 @@ class MeasureSizeTuning(VisualExperiment):
         for c in self.parameters.contrasts:
             for s in sizes:
                 for k in xrange(0, self.parameters.num_trials):
-                    if with_flat:
+                    if self.parameters.with_flat:
                         self.stimuli.append(
                             topo.FlatDisk(
                                 frame_duration=7,
