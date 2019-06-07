@@ -32,6 +32,8 @@ class VisualExperiment(Experiment):
         self.density  = 1/self.model.input_layer.parameters.receptive_field.spatial_resolution # in pixels per degree of visual space 
 	self.frame_duration = self.model.input_space.parameters.update_interval # in pixels per degree of visual space 
 
+
+
 class MeasureFlatLuminanceSensitivity(VisualExperiment):
     """
     Measure luminance sensitivity using flat luminance screen.
@@ -86,6 +88,8 @@ class MeasureFlatLuminanceSensitivity(VisualExperiment):
     def do_analysis(self, data_store):
         pass
     
+
+
 class MeasureSparse(VisualExperiment):
     """
     Sparse noise stimulation experiments.
@@ -156,6 +160,8 @@ class MeasureSparse(VisualExperiment):
     def do_analysis(self, data_store):
         pass
 
+
+
 class MeasureDense(VisualExperiment):
     """
     Dense noise stimulation experiments.
@@ -219,6 +225,7 @@ class MeasureDense(VisualExperiment):
          
     def do_analysis(self, data_store):
         pass
+
 
 
 class MeasureOrientationTuningFullfield(VisualExperiment):
@@ -286,6 +293,7 @@ class MeasureOrientationTuningFullfield(VisualExperiment):
 
     def do_analysis(self, data_store):
         pass
+
 
 
 class MeasureOrientationTuningFullfieldA(VisualExperiment):
@@ -358,6 +366,8 @@ class MeasureOrientationTuningFullfieldA(VisualExperiment):
     def do_analysis(self, data_store):
         pass
 
+
+
 class MeasureSizeTuning(VisualExperiment):
     """
     Size tuning experiment.
@@ -415,6 +425,7 @@ class MeasureSizeTuning(VisualExperiment):
             'contrasts' : list,
             'num_trials' : int,
             'log_spacing' : bool,
+            'with_flat' : bool,
     })  
 
     def __init__(self,model,parameters):
@@ -431,26 +442,44 @@ class MeasureSizeTuning(VisualExperiment):
         for c in self.parameters.contrasts:
             for s in sizes:
                 for k in xrange(0, self.parameters.num_trials):
-                    self.stimuli.append(topo.DriftingSinusoidalGratingDisk(
-				    frame_duration = self.frame_duration,
-                                    size_x=model.visual_field.size_x,
-                                    size_y=model.visual_field.size_y,
-                                    location_x=0.0,
-                                    location_y=0.0,
-                                    background_luminance=self.background_luminance,
-                                    contrast = c,
-                                    duration=self.parameters.grating_duration,
-                                    density=self.density,
-                                    trial=k,
-                                    orientation=self.parameters.orientation,
-                                    radius=s,
-                                    spatial_frequency=self.parameters.spatial_frequency,
-                                    temporal_frequency=self.parameters.temporal_frequency))
+                    if with_flat:
+                        self.stimuli.append(
+                            topo.FlatDisk(
+                                frame_duration=7,
+                                size_x=model.visual_field.size_x,
+                                size_y=model.visual_field.size_y,
+                                location_x=0.0,
+                                location_y=0.0,
+                                background_luminance=self.background_luminance,
+                                contrast = c,
+                                duration=grating_duration,
+                                density=self.density,
+                                trial=k,
+                                radius=s
+                            )
+                        )
+                    else:
+                        self.stimuli.append(
+                            topo.DriftingSinusoidalGratingDisk(
+                                frame_duration = self.frame_duration,
+                                size_x=model.visual_field.size_x,
+                                size_y=model.visual_field.size_y,
+                                location_x=0.0,
+                                location_y=0.0,
+                                background_luminance=self.background_luminance,
+                                contrast = c,
+                                duration=self.parameters.grating_duration,
+                                density=self.density,
+                                trial=k,
+                                orientation=self.parameters.orientation,
+                                radius=s,
+                                spatial_frequency=self.parameters.spatial_frequency,
+                                temporal_frequency=self.parameters.temporal_frequency
+                            )
+                        )
 
     def do_analysis(self, data_store):
         pass
-
-
 
 
 
