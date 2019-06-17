@@ -713,7 +713,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                                               self.pops[rf_type].positions[1][i],
                                               self.rf[rf_type],
                                               self.parameters.gain_control,visual_space)
-            print "provide_null_input:",rf_type, len(input_cells)
+            print "provide_null_input:",rf_type, len(input_cells),  input_cells[rf_type]
             input_cells[rf_type].initialize(visual_space.background_luminance, duration)
         
         for rf_type in self.rf_types:
