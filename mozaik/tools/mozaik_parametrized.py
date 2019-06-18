@@ -312,7 +312,7 @@ class MozaikParametrized(Parameterized):
         params = eval(obj)
         print params
         if not "name" in params.keys():
-            params["name"] = self.__class__.__name__
+            params["name"] = cls.__name__
         name = params.pop("name")
         module_path = params.pop("module_path")
         
