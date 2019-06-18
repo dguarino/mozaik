@@ -712,15 +712,20 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 cell = CellWithReceptiveField(self.pops[rf_type].positions[0][i],
                                               self.pops[rf_type].positions[1][i],
                                               self.rf[rf_type],
-                                              self.parameters.gain_control,visual_space)
-            print "provide_null_input:",rf_type, len(input_cells),  input_cells[rf_type]
-            input_cells[rf_type].initialize(visual_space.background_luminance, duration)
+                                              self.parameters.gain_control,
+                                              visual_space)
+                cell.initialize(visual_space.background_luminance, duration)
+                input_cells[rf_type].append(cell)
+
+            # print "provide_null_input:",rf_type, len(input_cells),  input_cells[rf_type]
+            # input_cells[rf_type].initialize(visual_space.background_luminance, duration)
         
         for rf_type in self.rf_types:
             for i, (lgn_cell, scs, ncs, rf) in enumerate(
-                                              zip(self.pops[rf_type],
-                                                  self.scs[rf_type],
-                                                  self.ncs[rf_type],input_cells[rf_type])):
+                                                zip(self.pops[rf_type],
+                                                    self.scs[rf_type],
+                                                    self.ncs[rf_type],
+                                                    input_cells[rf_type])):
                 
                 if self.parameters.gain_control.non_linear_gain != None:
                     amplitude = self.parameters.linear_scaler * self.parameters.gain_control.non_linear_gain.luminance_gain * numpy.sum(rf.receptive_field.kernel.flatten())*visual_space.background_luminance / (self.parameters.gain_control.non_linear_gain.luminance_scaler*visual_space.background_luminance+1.0)   
