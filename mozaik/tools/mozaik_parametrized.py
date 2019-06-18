@@ -309,8 +309,8 @@ class MozaikParametrized(Parameterized):
            return MozaikParametrized.idd(str(obj))
         assert isinstance(obj,str) , "The object passed to the idd class method is not string: %s" % (type(obj)) 
         
-        print params
         params = eval(obj)
+        print params
         # if not "name" in params.keys():
         #     print cls.__name__
         #     params["name"] = cls.__name__
