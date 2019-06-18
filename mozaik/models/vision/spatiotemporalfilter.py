@@ -618,6 +618,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         logger.debug("Presenting visual stimulus from visual space %s" % visual_space)
         visual_space.set_duration(duration)
         self.input = visual_space
+        print "spatiotemporalfilter - stimulus", stimulus
         st = MozaikParametrized.idd(stimulus)
         st.trial = None  # to avoid recalculating RFs response to multiple trials of the same stimulus
 
@@ -714,11 +715,9 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                                               self.rf[rf_type],
                                               self.parameters.gain_control,
                                               visual_space)
-                cell.initialize(visual_space.background_luminance, duration)
-                input_cells[rf_type].append(cell)
-
-            # print "provide_null_input:",rf_type, len(input_cells),  input_cells[rf_type]
-            # input_cells[rf_type].initialize(visual_space.background_luminance, duration)
+                cell.initialize(visual_space.background_luminance, duration) # DG: initialization of cell was absent (lost in merge)
+                input_cells[rf_type].append(cell)                            # DG: appending cell to the list was absent
+            # input_cells[rf_type].initialize(visual_space.background_luminance, duration) # DG: original
         
         for rf_type in self.rf_types:
             for i, (lgn_cell, scs, ncs, rf) in enumerate(

@@ -127,6 +127,7 @@ class Model(BaseComponent):
         if self.input_space:
             self.input_space.clear()
             if not isinstance(stimulus,InternalStimulus):
+                print "stimulus", stimulus
                 self.input_space.add_object(str(stimulus), stimulus)
                 sensory_input = self.input_layer.process_input(self.input_space, stimulus, stimulus.duration, self.simulator_time)
             else:
