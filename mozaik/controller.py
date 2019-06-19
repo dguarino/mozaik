@@ -208,7 +208,7 @@ def run_experiments(model,experiment_list,parameters,load_from=None):
     """
     
     # first lets run all the measurements required by the experiments
-    logger.info('Starting Experiments')
+    logger.info('Starting Experiemnts')
     if load_from == None:
         data_store = PickledDataStore(load=False,
                                       parameters=MozaikExtendedParameterSet({'root_directory': Global.root_directory,'store_stimuli' : parameters.store_stimuli}))
@@ -228,10 +228,9 @@ def run_experiments(model,experiment_list,parameters,load_from=None):
     for i,experiment in enumerate(experiment_list):
         logger.info('Starting experiment: ' + experiment.__class__.__name__)
         stimuli = experiment.return_stimuli()
-        print "stimuli", stimuli
         unpresented_stimuli_indexes = data_store.identify_unpresented_stimuli(stimuli)
         logger.info('Running model')
-        simulation_run_time += experiment.run(data_store, stimuli, unpresented_stimuli_indexes)
+        simulation_run_time += experiment.run(data_store,unpresented_stimuli_indexes)
         logger.info('Experiment %d/%d finished' % (i+1,len(experiment_list)))
     
     total_run_time = time.time() - t0
