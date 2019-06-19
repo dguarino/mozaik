@@ -87,8 +87,9 @@ class Experiment(ParametrizedObject):
         srtsum = 0
         # for i in stimulus_indexes:
         for n,i in zip(stimuli,stimulus_indexes):
+            print n, type(n)
             s = self.stimuli[i]
-            logger.info('Presenting stimulus: ' + str(s) + '\n')
+            logger.info('Presenting stimulus: ' + str(n) + str(s) + '\n')
             if self.direct_stimulation == None:
                 ds = {}
             else:
