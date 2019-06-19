@@ -91,7 +91,7 @@ class Model(BaseComponent):
             
         self.simulator_time = 0
 
-    def present_stimulus_and_record(self, stimulus, artificial_stimulators):
+    def present_stimulus_and_record(self, name, stimulus, artificial_stimulators):
         """
         This method is the core of the model execution control. It ensures that a `stimulus` is presented
         to the model, the simulation is ran for the duration of the stimulus, and all the data recorded during 
@@ -127,8 +127,8 @@ class Model(BaseComponent):
         if self.input_space:
             self.input_space.clear()
             if not isinstance(stimulus,InternalStimulus):
-                print "stimulus", stimulus
-                self.input_space.add_object(str(stimulus), stimulus)
+                print "stimulus", name, stimulus
+                self.input_space.add_object(str(name), stimulus)
                 sensory_input = self.input_layer.process_input(self.input_space, stimulus, stimulus.duration, self.simulator_time)
             else:
                 self.input_layer.provide_null_input(self.input_space,stimulus.duration,self.simulator_time)

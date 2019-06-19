@@ -59,7 +59,8 @@ class Experiment(ParametrizedObject):
         """
         return self.stimuli
         
-    def run(self,data_store,stimulus_indexes):
+    # def run(self,data_store,stimulus_indexes):
+    def run(self,data_store,stimuli):
         """
         This function is called to execute the experiment.
         
@@ -84,14 +85,15 @@ class Experiment(ParametrizedObject):
         the list of stimuli which to present to prevent repetitions, and lets this function know via the stimuli argument which stimuli to actually present.
         """
         srtsum = 0
-        for i in stimulus_indexes:
+        # for i in stimulus_indexes:
+        for n,i in stimuli:
             s = self.stimuli[i]
             logger.info('Presenting stimulus: ' + str(s) + '\n')
             if self.direct_stimulation == None:
                 ds = {}
             else:
-               ds = self.direct_stimulation[i]
-            (segments,null_segments,input_stimulus,simulator_run_time) = self.model.present_stimulus_and_record(s,ds)
+                ds = self.direct_stimulation[i]
+            (segments,null_segments,input_stimulus,simulator_run_time) = self.model.present_stimulus_and_record(n,s,ds)
             srtsum += simulator_run_time
             data_store.add_recording(segments,s)
             data_store.add_stimulus(input_stimulus,s)

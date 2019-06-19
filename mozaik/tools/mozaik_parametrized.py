@@ -310,10 +310,7 @@ class MozaikParametrized(Parameterized):
         assert isinstance(obj,str) , "The object passed to the idd class method is not string: %s" % (type(obj)) 
         
         params = eval(obj)
-        print params
-        # if not "name" in params.keys():
-        #     print cls.__name__
-        #     params["name"] = cls.__name__
+        print "MozaikParametrized.idd:",params
         name = params.pop("name")
         module_path = params.pop("module_path")
         

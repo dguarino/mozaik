@@ -208,7 +208,7 @@ def run_experiments(model,experiment_list,parameters,load_from=None):
     """
     
     # first lets run all the measurements required by the experiments
-    logger.info('Starting Experiemnts')
+    logger.info('Starting Experiments')
     if load_from == None:
         data_store = PickledDataStore(load=False,
                                       parameters=MozaikExtendedParameterSet({'root_directory': Global.root_directory,'store_stimuli' : parameters.store_stimuli}))
@@ -216,8 +216,6 @@ def run_experiments(model,experiment_list,parameters,load_from=None):
         data_store = PickledDataStore(load=True,
                                       parameters=MozaikExtendedParameterSet({'root_directory': load_from,'store_stimuli' : parameters.store_stimuli}))
     
-    print [(str(exp.__class__),str(exp.parameters)) for exp in experiment_list]
-
     data_store.set_neuron_ids(model.neuron_ids())
     data_store.set_neuron_positions(model.neuron_positions())
     data_store.set_neuron_annotations(model.neuron_annotations())
@@ -232,9 +230,8 @@ def run_experiments(model,experiment_list,parameters,load_from=None):
         stimuli = experiment.return_stimuli()
         print "stimuli", stimuli
         unpresented_stimuli_indexes = data_store.identify_unpresented_stimuli(stimuli)
-        print "unpresented_stimuli_indexes", unpresented_stimuli_indexes
         logger.info('Running model')
-        simulation_run_time += experiment.run(data_store, unpresented_stimuli_indexes)
+        simulation_run_time += experiment.run( data_store, zip(stimuli, unpresented_stimuli_indexes) )
         logger.info('Experiment %d/%d finished' % (i+1,len(experiment_list)))
     
     total_run_time = time.time() - t0
