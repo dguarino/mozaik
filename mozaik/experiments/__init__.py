@@ -60,7 +60,7 @@ class Experiment(ParametrizedObject):
         return self.stimuli
         
     # def run(self,data_store,stimulus_indexes):
-    def run(self,data_store,stimuli):
+    def run(self, data_store, stimuli, stimulus_indexes):
         """
         This function is called to execute the experiment.
         
@@ -86,7 +86,7 @@ class Experiment(ParametrizedObject):
         """
         srtsum = 0
         # for i in stimulus_indexes:
-        for n,i in stimuli:
+        for n,i in zip(stimuli,stimulus_indexes):
             s = self.stimuli[i]
             logger.info('Presenting stimulus: ' + str(s) + '\n')
             if self.direct_stimulation == None:

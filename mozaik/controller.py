@@ -231,7 +231,7 @@ def run_experiments(model,experiment_list,parameters,load_from=None):
         print "stimuli", stimuli
         unpresented_stimuli_indexes = data_store.identify_unpresented_stimuli(stimuli)
         logger.info('Running model')
-        simulation_run_time += experiment.run( data_store, zip(stimuli, unpresented_stimuli_indexes) )
+        simulation_run_time += experiment.run(data_store, stimuli, unpresented_stimuli_indexes)
         logger.info('Experiment %d/%d finished' % (i+1,len(experiment_list)))
     
     total_run_time = time.time() - t0
