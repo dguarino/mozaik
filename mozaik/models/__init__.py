@@ -129,6 +129,7 @@ class Model(BaseComponent):
             if not isinstance(stimulus,InternalStimulus):
                 print "stimulus", stimulus
                 print "stimulus class", stimulus.__class__
+                print "stimulus name", stimulus.name
                 print "stimulus dir", dir(stimulus)
                 print "stimulus str", str(stimulus)
                 self.input_space.add_object(str(stimulus), stimulus)
