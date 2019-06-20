@@ -132,7 +132,8 @@ class Model(BaseComponent):
                 # print "stimulus name", stimulus.name
                 # print "stimulus dir", dir(stimulus)
                 # print "stimulus str", str(stimulus)
-                self.input_space.add_object(str(stimulus.name), {"name":stimulus.name,"module_path":stimulus.module_path})
+                self.input_space.add_object(str(stimulus.name), stimulus)
+                # self.input_space.add_object(str(stimulus.name), {"name":stimulus.name,"module_path":stimulus.module_path})
                 sensory_input = self.input_layer.process_input(self.input_space, stimulus, stimulus.duration, self.simulator_time)
             else:
                 self.input_layer.provide_null_input(self.input_space, stimulus.duration, self.simulator_time)
