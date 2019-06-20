@@ -482,6 +482,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         self.scs = {}
         self.ncs = {}
         self.ncs_rng = {}
+        self.internal_stimulus_cache = {} # DG: this attribute was used but never initialized, the derived object RGCandLGN failed
         
         self.init_sheets(model)
 
@@ -888,3 +889,5 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
                 space = space.Space(axes='xy'),
                 receptor_type = 'excitatory'
             )
+        # self.internal_stimulus_cache[str(st)] = (input_currents, retinal_input)
+
