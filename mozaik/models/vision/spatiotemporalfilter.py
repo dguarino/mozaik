@@ -615,6 +615,8 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         retinal_input : list(ndarray)
                       List of 2D arrays containing the frames of luminances that were presented to the retina.
         """
+        # print "spatiotemporalfilter.process_input - stimulus",dir(stimulus)
+        # print "spatiotemporalfilter.process_input - duration",dir(duration)
         logger.debug("Presenting visual stimulus from visual space %s" % visual_space)
         visual_space.set_duration(duration)
         self.input = visual_space
