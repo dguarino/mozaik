@@ -652,13 +652,13 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 t = input_current['times'] + offset
                 a = self.parameters.linear_scaler * input_current['amplitudes']
                 print t, a
-                scs.set_parameters(times=t, amplitudes=a, copy=False)
+                scs.set_parameters(copy=True, times=t, amplitudes=a)
                 if self.parameters.mpi_reproducible_noise:
                     t = numpy.arange(0, duration, ts) + offset
                     amplitudes = (self.parameters.noise[rf_type].mean
                                    + self.parameters.noise[rf_type].stdev
                                        * self.ncs_rng[rf_type][i].randn(len(t)))
-                    ncs.set_parameters(times=t, amplitudes=amplitudes,copy=False)
+                    ncs.set_parameters(copy=True, times=t, amplitudes=amplitudes)
 
 
         # for debugging/testing, doesn't work with MPI !!!!!!!!!!!!
