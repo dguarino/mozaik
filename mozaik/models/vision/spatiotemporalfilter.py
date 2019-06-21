@@ -651,6 +651,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 assert isinstance(input_current, dict)
                 t = input_current['times'] + offset
                 a = self.parameters.linear_scaler * input_current['amplitudes']
+                print t, a
                 scs.set_parameters(times=t, amplitudes=a, copy=False)
                 if self.parameters.mpi_reproducible_noise:
                     t = numpy.arange(0, duration, ts) + offset
@@ -889,5 +890,4 @@ class SpatioTemporalFilterRGCandLGN(SpatioTemporalFilterRGC):
                 space = space.Space(axes='xy'),
                 receptor_type = 'excitatory'
             )
-        # self.internal_stimulus_cache[str(st)] = (input_currents, retinal_input)
 
