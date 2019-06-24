@@ -643,6 +643,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         ts = self.model.sim.get_time_step()
         for rf_type in self.rf_types:
             assert isinstance(input_currents[rf_type], list)
+            print dir(self)
             for i, (lgn_cell, input_current, scs, ncs) in enumerate(
                                                             zip(self.pops[rf_type],
                                                                 input_currents[rf_type],
