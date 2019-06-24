@@ -643,7 +643,6 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         ts = self.model.sim.get_time_step()
         for rf_type in self.rf_types:
             assert isinstance(input_currents[rf_type], list)
-            print dir(self)
             for i, (lgn_cell, input_current, scs, ncs) in enumerate(
                                                             zip(self.pops[rf_type],
                                                                 input_currents[rf_type],
@@ -652,14 +651,15 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
                 assert isinstance(input_current, dict)
                 t = input_current['times'] + offset
                 a = self.parameters.linear_scaler * input_current['amplitudes']
-                print t, a
-                scs.set_parameters(times=t, amplitudes=a)
+                # scs.set_parameters(copy=True, times=t, amplitudes=a) # DG original
+                scs.set_parameters(times=t, amplitudes=a) # DG no need to specify copy=True, PyNN is already doing it
                 if self.parameters.mpi_reproducible_noise:
                     t = numpy.arange(0, duration, ts) + offset
                     amplitudes = (self.parameters.noise[rf_type].mean
                                    + self.parameters.noise[rf_type].stdev
                                        * self.ncs_rng[rf_type][i].randn(len(t)))
-                    ncs.set_parameters(times=t, amplitudes=amplitudes)
+                    # ncs.set_parameters(copy=True, times=t, amplitudes=amplitudes) # DG original
+                    ncs.set_parameters(times=t, amplitudes=amplitudes) # DG no need to specify copy=True, PyNN is already doing it
 
 
         # for debugging/testing, doesn't work with MPI !!!!!!!!!!!!
