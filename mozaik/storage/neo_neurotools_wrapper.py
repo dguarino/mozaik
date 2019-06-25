@@ -175,6 +175,7 @@ class MozaikSegment(Segment):
             if not self.full:
                 self.load_full()
             for a in self.analogsignals:
+                print "get_stored_vm_ids", dir(a)
                 if a.name == 'v':
                    return a.annotations['source_ids']
 
