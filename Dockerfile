@@ -21,7 +21,9 @@ CMD export DISPLAY =":0"
 
 RUN $VENV/bin/pip install imagen param cycler
 
-
+RUN apt-get autoremove -y && \
+    apt-get clean
+    
 #######################################################
 WORKDIR $HOME
 RUN git clone -b merged_JA_DG https://github.com/dguarino/mozaik.git
