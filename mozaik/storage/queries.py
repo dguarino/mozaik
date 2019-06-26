@@ -88,15 +88,15 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
     
     for seg in dsv.block.segments:
         print "seg.annotations", seg.annotations
-    seg_st = [MozaikParametrized.idd(seg.annotations['stimulus']) for seg in dsv.block.segments] # DG: original
-    # seg_st = [] # DG: workaround to provide MozaikParametrized.idd() with the required params
-    # for seg in dsv.block.segments:
-    #     # print  seg.annotations # {'stimulus': '{"module_path":"mozaik.stimuli",}', 'sheet_name':'Inh_Layer'}
-    #     stidd = {}
-    #     stidd['name'] = seg.annotations['sheet_name']
-    #     st_p = eval(seg.annotations['stimulus'])
-    #     stidd['module_path'] = st_p['module_path']
-    #     seg_st.append(str(stidd))
+    # seg_st = [MozaikParametrized.idd(seg.annotations['stimulus']) for seg in dsv.block.segments] # DG: original
+    seg_st = [] # DG: workaround to provide MozaikParametrized.idd() with the required params
+    for seg in dsv.block.segments:
+        # print  seg.annotations # {'stimulus': '{"module_path":"mozaik.stimuli",}', 'sheet_name':'Inh_Layer'}
+        stidd = {}
+        stidd['name'] = seg.annotations['sheet_name']
+        st_p = eval(seg.annotations['stimulus'])
+        stidd['module_path'] = st_p['module_path']
+        seg_st.append(MozaikParametrized.idd(str(stidd)))
     ads_st = [MozaikParametrized.idd(ads.stimulus_id) for ads in dsv.analysis_results if ads.stimulus_id != None]
     if 'sheet_name' in set(kwargs):
        if len(kwargs) == 1:
