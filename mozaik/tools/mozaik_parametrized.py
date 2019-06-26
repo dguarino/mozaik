@@ -398,7 +398,6 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
         return True
     
     # res = zip(*filter(lambda x : fl(x,kwargs,allow_non_existent_parameters),zip(object_list,extra_data_list))) # DG original
-    print dir(object_list)
     for x,y in zip(object_list,extra_data_list):
         print "filter_query:",type(x),dir(x), x
     res = []

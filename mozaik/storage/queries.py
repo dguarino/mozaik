@@ -135,6 +135,8 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
     
     return new_dsv
 
+    
+
 class ParamFilterQuery(Query):
     """
     See :func:`.param_filter_query` for description.
