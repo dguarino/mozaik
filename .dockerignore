@@ -1,0 +1,7 @@
+.git
+.gitignore
+.cache
+
+# data folders:
+T2/ThalamoCorticalModel_data_size_closed_vsdi/
+T2/ThalamoCorticalModel_data_size_feedforward_vsdi/
