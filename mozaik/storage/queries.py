@@ -109,9 +109,11 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
            seg_filtered = set(dsv.block.segments)
         else:
            seg_filtered = set([])  
-        
+    
+    print "first filter_query"
     ads_filtered= set(filter_query(dsv.analysis_results,**kwargs))
     
+    print "second filter_query"
     if st_kwargs != {}:
        seg_filtered_st= set(filter_query(seg_st,extra_data_list=dsv.block.segments,**st_kwargs)[1]) 
        ads_filtered_st= set(filter_query(ads_st,extra_data_list=[ads for ads in dsv.analysis_results if ads.stimulus_id != None],**st_kwargs)[1])
@@ -135,7 +137,7 @@ def param_filter_query(dsv,ads_unique=False,rec_unique=False,**kwargs):
     
     return new_dsv
 
-    
+
 
 class ParamFilterQuery(Query):
     """
