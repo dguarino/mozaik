@@ -23,7 +23,7 @@ RUN $VENV/bin/pip install imagen param cycler
 
 RUN apt-get autoremove -y && \
     apt-get clean
-    
+
 #######################################################
 WORKDIR $HOME
 RUN git clone -b merged_JA_DG https://github.com/dguarino/mozaik.git
@@ -32,7 +32,6 @@ RUN python setup.py install
 
 # Simple test:
 # cd examples/VogelsAbbott2005
-# rm -r VogelsAbbott2005_test_____
 # python run.py nest 2 param/defaults 'test'
 # mpirun -np 2 python run.py nest 2 param/defaults 'test'
 
