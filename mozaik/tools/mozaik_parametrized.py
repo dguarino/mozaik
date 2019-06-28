@@ -241,7 +241,6 @@ class MozaikParametrized(Parameterized):
     def get_param_values(self, onlychanged=False):
         if self.cached_get_param_values==None or not self.cached_get_param_values:
             # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self,onlychanged)) # DG: this version of Parametrized allows for only 2 params
-            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self)) # DG: removed onlychanged
             Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed onlychanged
         return self.cached_get_param_values
         
@@ -267,6 +266,7 @@ class MozaikParametrized(Parameterized):
         This is the function that MozaikParametrized objects should use to retrieve a value of a parameter.
         """
         if name in self.expanded_params_names:
+            print name
             if isinstance(self.expanded_paramset_params_dict[name],ParameterWithUnitsAndPeriod):
                 return  self.expanded_paramset_params_dict[name].value
             else: 
