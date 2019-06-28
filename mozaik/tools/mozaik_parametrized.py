@@ -287,6 +287,7 @@ class MozaikParametrized(Parameterized):
                 settings.append('\"%s\":%s' % (name, repr(val)))
         
         r = "{\"module_path\" :" + "\"" + self.module_path + "\"" +',' + ", ".join(settings) + "}"
+        print r
         return r
 
     def __repr__(self):
