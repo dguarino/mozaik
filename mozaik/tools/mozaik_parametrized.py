@@ -280,16 +280,13 @@ class MozaikParametrized(Parameterized):
         """
         settings =[]
 
-        print self.get_param_values()
         for name, val in self.get_param_values():
-            print "__str__", name, val
             if isinstance(val, MozaikExtendedParameterSet):
                 settings.append('\"%s\":MozaikExtendedParameterSet(%s)' % (name, repr(val)))
             else:
                 settings.append('\"%s\":%s' % (name, repr(val)))
         
         r = "{\"module_path\" :" + "\"" + self.module_path + "\"" +',' + ", ".join(settings) + "}"
-        print "r",r
         return r
 
     def __repr__(self):
@@ -297,7 +294,6 @@ class MozaikParametrized(Parameterized):
         Returns the description of the MozaikParametrized instance - its class name and the list of its parameters and their values.
         """
         param_str = "\n".join(['   \"%s\":%s' % (name, repr(val)) for name, val in self.get_param_values()])
-        print "param_str", param_str
         return self.__class__.__name__ + "\n" + param_str + "\n"
 
     @classmethod
@@ -310,8 +306,8 @@ class MozaikParametrized(Parameterized):
         Furthermore if given an instance of MozaikParametrized instead it will convert it into the 'Shell' object.
         """
         if isinstance(obj,MozaikParametrized):
-            # return MozaikParametrized.idd(MozaikParametrized.__str__(obj)) # DG: original
-            return MozaikParametrized.idd( str({"name":obj.name,"module_path":obj.module_path}) ) # DG: using the obj params to explicitly set the idd
+            return MozaikParametrized.idd(str(obj)) # DG: original
+            # return MozaikParametrized.idd( str({"name":obj.name,"module_path":obj.module_path}) ) # DG: using the obj params to explicitly set the idd
         assert isinstance(obj,str), "The object passed to the idd class method is not string: %s" % (type(obj)) 
         
         params = eval(obj)
