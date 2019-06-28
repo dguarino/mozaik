@@ -238,7 +238,8 @@ class MozaikParametrized(Parameterized):
         Parameterized.__setattr__(self,'cached_get_param_values',None)
     
 
-    def get_param_values(self,onlychanged=False):
+    def get_param_values(self, onlychanged=False):
+        print "self.cached_get_param_values", self.cached_get_param_values
         if self.cached_get_param_values == None:
            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self,onlychanged)) # DG: this version of Parametrized allows for only 2 params
            Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self)) # DG: removed onlychanged
@@ -279,6 +280,7 @@ class MozaikParametrized(Parameterized):
         """
         settings =[]
 
+        print self.get_param_values()
         for name, val in self.get_param_values():
             print "__str__", name, val
             if isinstance(val, MozaikExtendedParameterSet):
@@ -307,7 +309,6 @@ class MozaikParametrized(Parameterized):
         
         Furthermore if given an instance of MozaikParametrized instead it will convert it into the 'Shell' object.
         """
-        print "__str__", MozaikParametrized.__str__(obj)
         if isinstance(obj,MozaikParametrized):
             return MozaikParametrized.idd(MozaikParametrized.__str__(obj)) # DG: original
             # return MozaikParametrized.idd( str({"name":obj.name,"module_path":obj.module_path}) ) # DG: using the obj params to explicitly set the idd
