@@ -280,7 +280,8 @@ class MozaikParametrized(Parameterized):
         settings =[]
 
         for name, val in self.get_param_values():
-            if isinstance(val,MozaikExtendedParameterSet):
+            print "__str__", name, val
+            if isinstance(val, MozaikExtendedParameterSet):
                 settings.append('\"%s\":MozaikExtendedParameterSet(%s)' % (name, repr(val)))
             else:
                 settings.append('\"%s\":%s' % (name, repr(val)))
