@@ -266,7 +266,6 @@ class MozaikParametrized(Parameterized):
         This is the function that MozaikParametrized objects should use to retrieve a value of a parameter.
         """
         if name in self.expanded_params_names:
-            print name
             if isinstance(self.expanded_paramset_params_dict[name],ParameterWithUnitsAndPeriod):
                 return  self.expanded_paramset_params_dict[name].value
             else: 
@@ -281,6 +280,7 @@ class MozaikParametrized(Parameterized):
         settings =[]
 
         for name, val in self.get_param_values():
+            print name
             if isinstance(val, MozaikExtendedParameterSet):
                 settings.append('\"%s\":MozaikExtendedParameterSet(%s)' % (name, repr(val)))
             else:
