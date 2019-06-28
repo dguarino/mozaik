@@ -307,6 +307,8 @@ class MozaikParametrized(Parameterized):
         Furthermore if given an instance of MozaikParametrized instead it will convert it into the 'Shell' object.
         """
         print type(obj)
+        if isinstance(obj,str):
+            return MozaikParametrized.idd(obj) # DG: original
         if isinstance(obj,MozaikParametrized):
             return MozaikParametrized.idd(str(obj)) # DG: original
             # return MozaikParametrized.idd( str({"name":obj.name,"module_path":obj.module_path}) ) # DG: using the obj params to explicitly set the idd
