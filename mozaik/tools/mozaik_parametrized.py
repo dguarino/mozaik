@@ -237,11 +237,11 @@ class MozaikParametrized(Parameterized):
 
 
     def get_param_values(self, onlychanged=False):
-        print "1 get_param_values", self.cached_get_param_values, Parameterized.get_param_values()
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
+            print "1 get_param_values", self.cached_get_param_values, Parameterized.get_param_values(onlychanged)
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
             Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
-        print "2 get_param_values", Parameterized.get_param_values()
+        print "2 get_param_values", self.cached_get_param_values, Parameterized.get_param_values()
         return self.cached_get_param_values
         
     def equalParams(self, other):
