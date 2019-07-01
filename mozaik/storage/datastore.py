@@ -242,6 +242,7 @@ class DataStoreView(ParametrizedObject):
         logger.info("   Number of recordings: " + str(len(self.block.segments)))
         d = {}
         for st in [s.annotations['stimulus'] for s in self.block.segments]:
+            print st
             d[MozaikParametrized.idd(st).name] = d.get(MozaikParametrized.idd(st).name, 0) + 1
 
         for k in d.keys():
@@ -444,6 +445,8 @@ class DataStore(DataStoreView):
             logger.error("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: \n %s \n %s " % (str(result),str(ads)))
             raise ValueError("Analysis Data Structure with the same parametrization already added in the datastore. Currently uniqueness is required. The ADS was not added. User should modify analysis specification to avoid this!: %s \n %s" % (str(result),str(ads)))
 
+
+
 class Hdf5DataStore(DataStore):
     """
     An DataStore that saves all it's data in a hdf5 file and an associated
@@ -558,7 +561,6 @@ class PickledDataStore(Hdf5DataStore):
             cPickle.dump(s, f)
 
         self.stimulus_dict[str(stimulus)] = True
-
 
     def add_null_recording(self, segments,stimulus):
         """
