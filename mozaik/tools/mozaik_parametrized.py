@@ -237,7 +237,7 @@ class MozaikParametrized(Parameterized):
 
 
     def get_param_values(self, onlychanged=False):
-        if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
+        if self.cached_get_param_values==None: # or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
             print "1 get_param_values", self.cached_get_param_values, Parameterized.get_param_values(onlychanged)
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
             Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
