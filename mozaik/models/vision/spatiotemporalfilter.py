@@ -619,6 +619,7 @@ class SpatioTemporalFilterRGC(SensoryInputComponent):
         logger.debug("Presenting visual stimulus from visual space %s" % visual_space)
         visual_space.set_duration(duration)
         self.input = visual_space
+        print "SpatioTemporalFilterRGC", stimulus
         st = MozaikParametrized.idd(stimulus)
         st.trial = None  # to avoid recalculating RFs response to multiple trials of the same stimulus
 
