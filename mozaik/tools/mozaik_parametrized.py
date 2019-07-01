@@ -239,9 +239,10 @@ class MozaikParametrized(Parameterized):
     
 
     def get_param_values(self, onlychanged=False):
-        if self.cached_get_param_values==None or not self.cached_get_param_values:
-            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self,onlychanged)) # DG: this version of Parametrized allows for only 2 params
-            Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed onlychanged
+        if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
+            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self,onlychanged)) # DG: original
+            Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
+            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self)) # DG: removed onlychanged
         return self.cached_get_param_values
         
     def equalParams(self, other):
@@ -280,7 +281,7 @@ class MozaikParametrized(Parameterized):
         settings =[]
 
         for name, val in self.get_param_values():
-            print name, val, type(val), dir(val)
+            print "__str__",name, val, type(val), dir(val)
             if isinstance(val, MozaikExtendedParameterSet):
                 settings.append('\"%s\":MozaikExtendedParameterSet(%s)' % (name, repr(val)))
             else:
