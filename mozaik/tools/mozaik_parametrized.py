@@ -240,8 +240,8 @@ class MozaikParametrized(Parameterized):
 
     def get_param_values(self, onlychanged=False):
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
-            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self,onlychanged)) # DG: original
-            Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
+            Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original
+            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
             # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self)) # DG: removed onlychanged
         return self.cached_get_param_values
         
