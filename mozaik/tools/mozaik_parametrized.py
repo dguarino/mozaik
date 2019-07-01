@@ -315,11 +315,14 @@ class MozaikParametrized(Parameterized):
         params = eval(obj)
         name = params.pop("name")
         module_path = params.pop("module_path")
+        print "idd", name, module_path
         
         if (module_path,name) in MozaikParametrized._module_cache:
+            print "MozaikParametrized._module_cache", MozaikParametrized._module_cache
             z = MozaikParametrized._module_cache[(module_path,name)]
         else:
             z = __import__(module_path, globals(), locals(), name)
+            print "else", z
             MozaikParametrized._module_cache[(module_path,name)] = z
             
         cls = getattr(z,name)
