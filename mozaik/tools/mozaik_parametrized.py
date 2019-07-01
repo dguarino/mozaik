@@ -134,7 +134,6 @@ class MozaikParametrized(Parameterized):
     _module_cache = {}
     
     def __init__(self, **params):
-        print "__init__", self.__class__.__name__, params
         self.cached_get_param_values = None
         Parameterized.__init__(self, **params)
         self.module_path = inspect.getmodule(self).__name__
@@ -238,11 +237,10 @@ class MozaikParametrized(Parameterized):
 
     def get_param_values(self, onlychanged=False):
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
-            # print "1 get_param_values", self.cached_get_param_values, self.name, Parameterized.get_param_values(onlychanged)
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
-            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
-            Parameterized.__setattr__(self,'cached_get_param_values', [('name',self.name)]) # DG: HACK
-        # print "2 get_param_values", self.cached_get_param_values, Parameterized.get_param_values()
+            print "get_param_values", Parameterized.get_param_values(onlychanged) # DG: onlychanged
+            Parameterized.__setattr__(self,'cached_get_param_values', [('name',self.name)]) # DG: HACK because Parameterized.get_param_values(onlychanged) returns always 'name':'Paramtrized'
+            print "get_param_values", self.cached_get_param_values # DG: onlychanged
         return self.cached_get_param_values
         
     def equalParams(self, other):
@@ -282,14 +280,13 @@ class MozaikParametrized(Parameterized):
         settings =[]
 
         for name, val in self.get_param_values():
-            # print "__str__",name, val, type(val), dir(val)
             if isinstance(val, MozaikExtendedParameterSet):
                 settings.append('\"%s\":MozaikExtendedParameterSet(%s)' % (name, repr(val)))
             else:
                 settings.append('\"%s\":%s' % (name, repr(val)))
         
         r = "{\"module_path\" :" + "\"" + self.module_path + "\"" +',' + ", ".join(settings) + "}"
-        print r
+        # print r
         return r
 
     def __repr__(self):
@@ -310,20 +307,16 @@ class MozaikParametrized(Parameterized):
         """
         if isinstance(obj,MozaikParametrized):
             return MozaikParametrized.idd(str(obj)) # DG: original
-            # return MozaikParametrized.idd( str({"name":obj.name,"module_path":obj.module_path}) ) # DG: using the obj params to explicitly set the idd
         assert isinstance(obj,str), "The object passed to the idd class method is not string: %s" % (type(obj)) 
         
         params = eval(obj)
         name = params.pop("name")
         module_path = params.pop("module_path")
-        print "idd", name, module_path
         
         if (module_path,name) in MozaikParametrized._module_cache:
-            print "MozaikParametrized._module_cache", MozaikParametrized._module_cache
             z = MozaikParametrized._module_cache[(module_path,name)]
         else:
             z = __import__(module_path, globals(), locals(), name)
-            print "else", z
             MozaikParametrized._module_cache[(module_path,name)] = z
             
         cls = getattr(z,name)
@@ -403,7 +396,7 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
                return False
         return True
     
-    print "object_list", object_list
+    # print "object_list", object_list
     res = zip(*filter(lambda x : fl(x,kwargs,allow_non_existent_parameters),zip(object_list,extra_data_list))) # DG original
     # for x,y in zip(object_list,extra_data_list):
     #     print "filter_query:",type(x),dir(x), x
