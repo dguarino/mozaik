@@ -237,8 +237,8 @@ class MozaikParametrized(Parameterized):
 
 
     def get_param_values(self, onlychanged=False):
-        if self.cached_get_param_values==None: # or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
-            print "1 get_param_values", self.cached_get_param_values, Parameterized.get_param_values(onlychanged)
+        if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
+            print "1 get_param_values", self.cached_get_param_values, self.name, Parameterized.get_param_values(onlychanged)
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
             Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
         print "2 get_param_values", self.cached_get_param_values, Parameterized.get_param_values()
@@ -251,6 +251,7 @@ class MozaikParametrized(Parameterized):
 
         JACOMMENT: This seems to work only because get_param_values sorts the
         list by names which is undocumented!
+        DGCOMMENT: but it is in the code https://github.com/pyviz/param/blob/master/param/parameterized.py (line 1547)
         """
         return (self.get_param_values() == other.get_param_values()) and (self.expanded_paramset_params == other.expanded_paramset_params)
 
