@@ -195,7 +195,7 @@ class MozaikParametrized(Parameterized):
 
     
 
-    def __setattr__(self,attribute_name,value):
+    def __setattr__(self, attribute_name, value):
         """
         We need to override the Parametrized __setattr__ to handle setting of SParameterSet parameters.
         """
@@ -216,7 +216,7 @@ class MozaikParametrized(Parameterized):
                     else:
                        n.append(z)   
                 self.expanded_paramset_params = n
-
+                print "expanded_paramset_params", expanded_paramset_params
                 #HAAAAAAAAAAAAACK
                 if attribute_name == 'stimulating_signal_parameters_orientation':
                     getattr(self,'direct_stimulation_parameters')['stimulating_signal_parameters']['orientation']=value
@@ -230,19 +230,19 @@ class MozaikParametrized(Parameterized):
                 if attribute_name == 'stimulating_signal_parameters_size':
                     getattr(self,'direct_stimulation_parameters')['stimulating_signal_parameters']['size']=value
 
-
                 #set_in_dict(attribute_name,getattr(self,'direct_stimulation_parameters'),value)
                 #set_in_dict(path[1:,],self.params()[path[0]],value)
                 return
-        Parameterized.__setattr__(self,attribute_name,value)
+        # anyway
+        print "__setattr__", attribute_name, value
+        Parameterized.__setattr__(self, attribute_name, value)
         Parameterized.__setattr__(self,'cached_get_param_values',None)
-    
+
 
     def get_param_values(self, onlychanged=False):
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
-            Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original
-            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
-            # Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(self)) # DG: removed onlychanged
+            # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
+            Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
         return self.cached_get_param_values
         
     def equalParams(self, other):
