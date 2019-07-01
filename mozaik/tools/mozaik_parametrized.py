@@ -140,7 +140,6 @@ class MozaikParametrized(Parameterized):
         self.module_path = inspect.getmodule(self).__name__
         self.name = self.__class__.__name__
         
-
         for name in self.params():
             o = self.params()[name]
             if not (isinstance(o,SNumber) or isinstance(o,SInteger) or isinstance(o,SString) or isinstance(o,SParameterSet)):
@@ -172,8 +171,6 @@ class MozaikParametrized(Parameterized):
                 if getattr(self,ps) != None:
                     self.expanded_paramset_params+=_expand_parameter_set(getattr(self,ps))
         self.expanded_paramset_params.sort(key=lambda tup: tup[0])
-
-
 
         if self.expanded_paramset_params != []:
             self.expanded_params_names = zip(*self.expanded_paramset_params)[0]
@@ -216,7 +213,7 @@ class MozaikParametrized(Parameterized):
                     else:
                        n.append(z)   
                 self.expanded_paramset_params = n
-                print "expanded_paramset_params", expanded_paramset_params
+
                 #HAAAAAAAAAAAAACK
                 if attribute_name == 'stimulating_signal_parameters_orientation':
                     getattr(self,'direct_stimulation_parameters')['stimulating_signal_parameters']['orientation']=value
@@ -240,9 +237,11 @@ class MozaikParametrized(Parameterized):
 
 
     def get_param_values(self, onlychanged=False):
+        print "1 get_param_values", Parameterized.get_param_values()
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
             Parameterized.__setattr__(self,'cached_get_param_values',Parameterized.get_param_values(onlychanged)) # DG: removed self
+        print "2 get_param_values", Parameterized.get_param_values()
         return self.cached_get_param_values
         
     def equalParams(self, other):
