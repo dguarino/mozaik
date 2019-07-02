@@ -118,7 +118,7 @@ class Model(BaseComponent):
                                           
         """
         print "present_stimulus_and_record - stimulus", dir(stimulus) # ###############################
-        print "present_stimulus_and_record - stimulus", stimulus.name # ###############################
+        print "present_stimulus_and_record - stimulus", stimulus.name, str(stimulus) # ###############################
         t0 = time.time()
         for sheet in self.sheets.values():
             if self.first_time:

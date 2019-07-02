@@ -395,6 +395,7 @@ class DataStore(DataStoreView):
         """
         # we get recordings as seg
         for s in segments:
+            print "add_recording", stimulus, str(stimulus), stimulus.name
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(MozaikSegment(s))
         self.stimulus_dict[str(stimulus)] = True
