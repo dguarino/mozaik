@@ -242,7 +242,6 @@ class DataStoreView(ParametrizedObject):
         logger.info("   Number of recordings: " + str(len(self.block.segments)))
         d = {}
         for st in [s.annotations['stimulus'] for s in self.block.segments]:
-            print st
             d[MozaikParametrized.idd(st).name] = d.get(MozaikParametrized.idd(st).name, 0) + 1
 
         for k in d.keys():
@@ -394,9 +393,7 @@ class DataStore(DataStoreView):
         """
         Add a recording into the datastore.
         """
-
         # we get recordings as seg
-        print "add_recording", stimulus
         for s in segments:
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(MozaikSegment(s))
@@ -562,6 +559,7 @@ class PickledDataStore(Hdf5DataStore):
             cPickle.dump(s, f)
 
         self.stimulus_dict[str(stimulus)] = True
+
 
     def add_null_recording(self, segments,stimulus):
         """

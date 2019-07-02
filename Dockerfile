@@ -14,10 +14,13 @@ FROM neuralensemble/simulationx:py2
 
 MAINTAINER domenico.guarino@cnrs.fr
 
+##########################################################
+# Xserver
+CMD export DISPLAY=":0"
+
+
 #######################################################
 # Additional prerequisite libraries
-
-CMD export DISPLAY =":0"
 
 RUN $VENV/bin/pip install imagen param cycler
 

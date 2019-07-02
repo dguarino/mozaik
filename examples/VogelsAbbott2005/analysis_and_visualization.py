@@ -6,6 +6,8 @@ from mozaik.analysis.analysis import *
 from mozaik.storage.queries import *
 from mozaik.storage.datastore import PickledDataStore
 
+import matplotlib
+matplotlib.use('Agg')
 
 def perform_analysis_and_visualization(data_store):
     analog_ids = sorted(param_filter_query(data_store,sheet_name="Exc_Layer").get_segments()[0].get_stored_esyn_ids())

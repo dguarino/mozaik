@@ -106,6 +106,8 @@ class Experiment(ParametrizedObject):
         raise NotImplementedError
         pass
 
+
+
 class PoissonNetworkKick(Experiment):
     """
     This experiment injects Poisson spike trains into the target popullation.
@@ -139,7 +141,6 @@ class PoissonNetworkKick(Experiment):
     weight_list : list
                 List of spike sizes of the Poisson spike train to be injected into the neurons specified in stimulation_configuration (one per each sheet).
     """
-    
     required_parameters = ParameterSet({
             'duration': float,
             'sheet_list' : list,
@@ -173,7 +174,9 @@ class PoissonNetworkKick(Experiment):
                                             direct_stimulation_parameters = p
                                          )
                                 )
-        
+
+
+
 class NoStimulation(Experiment):
     """ 
     This is a special experiment that does not show any stimulus for the duration of the experiment. 
