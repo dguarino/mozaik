@@ -93,8 +93,9 @@ class Experiment(ParametrizedObject):
                 ds = self.direct_stimulation[i]
             (segments,null_segments,input_stimulus,simulator_run_time) = self.model.present_stimulus_and_record(s,ds)
             srtsum += simulator_run_time
-            print "__init__.experiments s.annotations",[s.annotations for s in segments]
+            # print "__init__.experiments s.annotations",[s.annotations for s in segments]
             data_store.add_recording(segments,s)
+            print "__init__.experiments s.input_stimulus", dir(input_stimulus), input_stimulus.name
             data_store.add_stimulus(input_stimulus,s)
             
             if null_segments != []:
