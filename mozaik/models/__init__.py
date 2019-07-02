@@ -117,6 +117,8 @@ class Model(BaseComponent):
                      The biological time of the simulation up to this point (including blank presentations).
                                           
         """
+        print "present_stimulus_and_record - stimulus", dir(stimulus) # ###############################
+        print "present_stimulus_and_record - stimulus", stimulus.name # ###############################
         t0 = time.time()
         for sheet in self.sheets.values():
             if self.first_time:
