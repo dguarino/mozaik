@@ -395,7 +395,6 @@ class DataStore(DataStoreView):
         """
         # we get recordings as seg
         for s in segments:
-            print "add_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(MozaikSegment(s))
         self.stimulus_dict[str(stimulus)] = True
@@ -407,7 +406,6 @@ class DataStore(DataStoreView):
         # we get recordings as seg
         for s in segments:
             s.null = True
-            print "add_null_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(MozaikSegment(s,null=True))
 
@@ -416,7 +414,6 @@ class DataStore(DataStoreView):
         The DataStore interface function that adds a stimulus into the datastore.
         """
         if self.parameters.store_stimuli:
-            print "add_stimulus", stimulus, str(stimulus), stimulus.name # #########################
             self._add_stimulus(data, stimulus)
 
     def _add_stimulus(self, data, stimulus):
@@ -552,6 +549,7 @@ class PickledDataStore(Hdf5DataStore):
     def add_recording(self, segments, stimulus):
         # we get recordings as seg
         for s in segments:
+            print "add_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
                 PickledDataStoreNeoWrapper(s,
@@ -570,6 +568,7 @@ class PickledDataStore(Hdf5DataStore):
         """
         # we get recordings as seg
         for s in segments:
+            print "add_null_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
                 PickledDataStoreNeoWrapper(s,
