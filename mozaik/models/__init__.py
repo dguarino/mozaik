@@ -126,7 +126,7 @@ class Model(BaseComponent):
             sheet.prepare_artificial_stimulation( stimulus.duration, self.simulator_time, artificial_stimulators.get(sheet.name,[]) )
         if self.input_space:
             self.input_space.clear()
-            if not isinstance(stimulus, InternalStimulus):
+            if not isinstance(stimulus,InternalStimulus):
                 self.input_space.add_object(str(stimulus.name), stimulus)
                 sensory_input = self.input_layer.process_input(self.input_space, stimulus, stimulus.duration, self.simulator_time)
             else:
@@ -142,7 +142,6 @@ class Model(BaseComponent):
             if sheet.to_record != None:
                 if self.parameters.reset:
                     s = sheet.get_data()
-                    print "present_stimulus_and_record",s.annotations
                     if (not mozaik.mpi_comm) or (mozaik.mpi_comm.rank == mozaik.MPI_ROOT):
                         segments.append(s)
                 else:
