@@ -383,6 +383,7 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
         assert(len(extra_data_list) == len(object_list))
     
     def fl(x,kwargs,allow): 
+        print x
         x = x[0]
         if not allow and not (set(kwargs.keys()) <= set(x.getParams().keys())):
            return False 
