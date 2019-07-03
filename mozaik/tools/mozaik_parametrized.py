@@ -380,7 +380,6 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
         extra_data_list = [[] for z in xrange(0, len(object_list))]
         no_data = True
     else:
-        print len(extra_data_list)," == ",len(object_list)
         assert(len(extra_data_list) == len(object_list))
     
     def fl(x,kwargs,allow): 
