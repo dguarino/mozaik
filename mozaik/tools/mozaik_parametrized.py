@@ -236,8 +236,10 @@ class MozaikParametrized(Parameterized):
 
 
     def get_param_values(self, onlychanged=False):
+        print "get_param_values"
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
+            print "get_param_values", Parameterized.get_param_values(self,onlychanged)
             Parameterized.__setattr__(self,'cached_get_param_values', [('name',self.name)]) # DG: HACK because Parameterized.get_param_values(onlychanged) returns always 'name':'Paramtrized'
             # print "get_param_values", self.cached_get_param_values
         return self.cached_get_param_values
@@ -305,7 +307,7 @@ class MozaikParametrized(Parameterized):
         Furthermore if given an instance of MozaikParametrized instead it will convert it into the 'Shell' object.
         """
         if isinstance(obj,MozaikParametrized):
-            return MozaikParametrized.idd(str(obj)) # DG: original
+            return MozaikParametrized.idd(str(obj))
         assert isinstance(obj,str), "The object passed to the idd class method is not string: %s" % (type(obj)) 
         
         params = eval(obj)
