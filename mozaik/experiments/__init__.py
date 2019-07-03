@@ -95,7 +95,7 @@ class Experiment(ParametrizedObject):
             srtsum += simulator_run_time
             # print "__init__.experiments s.annotations",[s.annotations for s in segments]
             data_store.add_recording(segments,s)
-            print "__init__.experiments s.input_stimulus", dir(input_stimulus), str(input_stimulus)
+            # print "__init__.experiments s.input_stimulus", dir(input_stimulus), str(input_stimulus)
             data_store.add_stimulus(input_stimulus,s)
             
             if null_segments != []:

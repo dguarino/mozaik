@@ -549,7 +549,7 @@ class PickledDataStore(Hdf5DataStore):
     def add_recording(self, segments, stimulus):
         # we get recordings as seg
         for s in segments:
-            print "add_recording", stimulus, str(stimulus), stimulus.name # #########################
+            # print "add_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
                 PickledDataStoreNeoWrapper(s,
@@ -568,7 +568,7 @@ class PickledDataStore(Hdf5DataStore):
         """
         # we get recordings as seg
         for s in segments:
-            print "add_null_recording", stimulus, str(stimulus), stimulus.name # #########################
+            # print "add_null_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
                 PickledDataStoreNeoWrapper(s,

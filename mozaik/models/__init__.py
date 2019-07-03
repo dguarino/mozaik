@@ -117,8 +117,8 @@ class Model(BaseComponent):
                      The biological time of the simulation up to this point (including blank presentations).
                                           
         """
-        print "present_stimulus_and_record - stimulus", dir(stimulus) # ###############################
-        print "present_stimulus_and_record - stimulus", stimulus.name, str(stimulus) # ###############################
+        # print "present_stimulus_and_record - stimulus", dir(stimulus) # ###############################
+        # print "present_stimulus_and_record - stimulus", stimulus.name, str(stimulus) # ###############################
         t0 = time.time()
         for sheet in self.sheets.values():
             if self.first_time:
@@ -145,12 +145,12 @@ class Model(BaseComponent):
                 if self.parameters.reset:
                     s = sheet.get_data()
                     if (not mozaik.mpi_comm) or (mozaik.mpi_comm.rank == mozaik.MPI_ROOT):
-                        print "present_stimulus_and_record - reset", dir(s), s.annotations # ###############################
+                        # print "present_stimulus_and_record - reset", dir(s), s.annotations # ###############################
                         segments.append(s)
                 else:
                     s = sheet.get_data(stimulus.duration)
                     if (not mozaik.mpi_comm) or (mozaik.mpi_comm.rank == mozaik.MPI_ROOT):
-                        print "present_stimulus_and_record - else", dir(s), s.annotations # ###############################
+                        # print "present_stimulus_and_record - else", dir(s), s.annotations # ###############################
                         segments.append(s)
 
         self.first_time = False

@@ -230,7 +230,7 @@ class MozaikParametrized(Parameterized):
                 #set_in_dict(path[1:,],self.params()[path[0]],value)
                 return
         # anyway
-        print "__setattr__", attribute_name, value
+        # print "__setattr__", attribute_name, value
         Parameterized.__setattr__(self, attribute_name, value)
         Parameterized.__setattr__(self,'cached_get_param_values',None)
 
@@ -238,9 +238,8 @@ class MozaikParametrized(Parameterized):
     def get_param_values(self, onlychanged=False):
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
-            print "get_param_values", Parameterized.get_param_values(onlychanged) # DG: onlychanged
             Parameterized.__setattr__(self,'cached_get_param_values', [('name',self.name)]) # DG: HACK because Parameterized.get_param_values(onlychanged) returns always 'name':'Paramtrized'
-            print "get_param_values", self.cached_get_param_values # DG: onlychanged
+            # print "get_param_values", self.cached_get_param_values
         return self.cached_get_param_values
         
     def equalParams(self, other):
@@ -381,6 +380,7 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
         extra_data_list = [[] for z in xrange(0, len(object_list))]
         no_data = True
     else:
+        print len(extra_data_list)," == ",len(object_list)
         assert(len(extra_data_list) == len(object_list))
     
     def fl(x,kwargs,allow): 
@@ -398,9 +398,6 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
     
     # print "object_list", object_list
     res = zip(*filter(lambda x : fl(x,kwargs,allow_non_existent_parameters),zip(object_list,extra_data_list))) # DG original
-    # for x,y in zip(object_list,extra_data_list):
-    #     print "filter_query:",type(x),dir(x), x
-    # res = []
 
     if no_data:
        if len(res)==0:
