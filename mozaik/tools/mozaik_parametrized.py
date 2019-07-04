@@ -236,10 +236,9 @@ class MozaikParametrized(Parameterized):
 
 
     def get_param_values(self, onlychanged=False):
-        print "get_param_values"
         if self.cached_get_param_values==None or not self.cached_get_param_values: # DG: cached_get_param_values can be [], which is not None
             # Parameterized.__setattr__(self,'cached_get_param_values', Parameterized.get_param_values(self,onlychanged)) # DG: original gives: "TypeError: get_param_values() takes at most 2 arguments (3 given)"
-            print "get_param_values", Parameterized.get_param_values(onlychanged)
+            # print "get_param_values", Parameterized.get_param_values(onlychanged)
             Parameterized.__setattr__(self,'cached_get_param_values', [('name',self.name)]) # DG: HACK because Parameterized.get_param_values(onlychanged) returns always 'name':'Paramtrized'
             # print "get_param_values", self.cached_get_param_values
         return self.cached_get_param_values

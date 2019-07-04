@@ -7,7 +7,7 @@
 #
 # docker build --no-chache -t mozaik .
 # docker ps
-# docker run -v `pwd`:`pwd` -w `pwd` -i -t mozaik /bin/bash
+# docker run -e DISPLAY=$DISPLAY -v `pwd`:`pwd` -w `pwd` -i -t mozaik /bin/bash
 
 
 FROM neuralensemble/simulationx:py2
@@ -16,8 +16,8 @@ MAINTAINER domenico.guarino@cnrs.fr
 
 ##########################################################
 # Xserver
-CMD export DISPLAY=":0"
-
+#CMD export DISPLAY=":0"
+ENV DISPLAY :0
 
 #######################################################
 # Additional prerequisite libraries

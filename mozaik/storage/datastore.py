@@ -172,7 +172,7 @@ class DataStoreView(ParametrizedObject):
         
         This command should return or ADS whose identifier is *PerNeuronValue* or *SingleValue*, and are associated with sheet named *sheet* and as their value name have 'orientation preference'
         """
-        print "get_analysis_result", kwargs
+        # print "get_analysis_result", kwargs
         return filter_query(self.analysis_results,**kwargs)
 
     def get_sensory_stimulus(self, stimuli=None):
