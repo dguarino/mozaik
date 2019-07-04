@@ -46,7 +46,7 @@ class NeuronAnnotationsToPerNeuronValues(Analysis):
                 key_ok = True
 
                 for n in xrange(0, len(anns[sheet])):
-                    if not k in anns[sheet][n]:
+                    if bool(k) in anns[sheet][n]: # not k will give True for an empty dict, bool(k) will give False
                         key_ok = False
                         break
 
