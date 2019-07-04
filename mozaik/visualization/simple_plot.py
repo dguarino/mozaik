@@ -269,8 +269,8 @@ class StandardStyle(SimplePlot):
         pylab.rcParams['xtick.major.pad'] = self.x_tick_pad
         self.ytick_pad_backup = pylab.rcParams['ytick.major.pad']
         pylab.rcParams['ytick.major.pad'] = self.y_tick_pad
-        self.colormap_backup = pylab.rcParams['axes.prop_cycle']
-        pylab.rcParams['axes.prop_cycle'] = cycler('color',[self.color_cycle[c] for c in sorted(self.color_cycle.keys())])
+        # self.colormap_backup = pylab.rcParams['axes.prop_cycle']
+        # pylab.rcParams['axes.prop_cycle'] = cycler('color',[self.color_cycle[c] for c in sorted(self.color_cycle.keys())])
 
 
     def pre_plot(self):
