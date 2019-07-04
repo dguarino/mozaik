@@ -384,7 +384,6 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
         assert(len(extra_data_list) == len(object_list))
     
     def fl(x,kwargs,allow): 
-        print x
         x = x[0]
         if not allow and not (set(kwargs.keys()) <= set(x.getParams().keys())):
            return False 
@@ -397,7 +396,7 @@ def filter_query(object_list, extra_data_list=None,allow_non_existent_parameters
                return False
         return True
     
-    print "object_list", object_list
+    # print "object_list", object_list
     res = zip(*filter(lambda x : fl(x,kwargs,allow_non_existent_parameters),zip(object_list,extra_data_list))) # DG original
 
     if no_data:
