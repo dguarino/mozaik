@@ -576,7 +576,7 @@ class PickledDataStore(Hdf5DataStore):
         # we get recordings as seg
         for s in segments:
             for a in s.analogsignals:
-                print "picked add_null_recording", a.name, a
+                print "pickled add_null_recording", a.name, a
             # print "add_null_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
