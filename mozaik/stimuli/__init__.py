@@ -38,7 +38,6 @@ class BaseStimulus(MozaikParametrized):
     direct_stimulation_parameters = SParameterSet(default=None,doc="The parameters with which the direct stimulation protocol has been initialized")
     
     def __init__(self, **params):
-        print "BaseStimulus", params
         MozaikParametrized.__init__(self, **params)
         self.input = None
         self._frames = self.frames()
