@@ -217,7 +217,7 @@ class DataStoreView(ParametrizedObject):
         """
         for s in self.block.segments:
             for a in s.analogsignals:
-            print "asig recordings_copy", a.name
+                print "asig recordings_copy", a.name
 
         return self.block.segments[:]
 
