@@ -217,7 +217,7 @@ class DataStoreView(ParametrizedObject):
         """
         for s in self.block.segments:
             for a in s.analogsignals:
-                print "asig recordings_copy", a.name
+                print "asig recordings_copy", a.name, a 
 
         return self.block.segments[:]
 
@@ -400,9 +400,6 @@ class DataStore(DataStoreView):
         """
         # we get recordings as seg
         for s in segments:
-            # print data
-            for a in s.analogsignals:
-                print "add_recording",a.name
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(MozaikSegment(s))
         self.stimulus_dict[str(stimulus)] = True
@@ -413,8 +410,6 @@ class DataStore(DataStoreView):
         """
         # we get recordings as seg
         for s in segments:
-            for a in s.analogsignals:
-                print "add_null_recording",a.name
             s.null = True
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(MozaikSegment(s,null=True))
@@ -560,7 +555,7 @@ class PickledDataStore(Hdf5DataStore):
         # we get recordings as seg
         for s in segments:
             for a in s.analogsignals:
-                print "a add_recording",a.name
+                print "pickled add_recording",a.name, a
             # print "add_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
@@ -581,7 +576,7 @@ class PickledDataStore(Hdf5DataStore):
         # we get recordings as seg
         for s in segments:
             for a in s.analogsignals:
-                print "a add_null_recording", a.name
+                print "picked add_null_recording", a.name, a
             # print "add_null_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
