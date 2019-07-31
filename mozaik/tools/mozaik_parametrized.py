@@ -230,7 +230,6 @@ class MozaikParametrized(Parameterized):
                 #set_in_dict(path[1:,],self.params()[path[0]],value)
                 return
         # anyway
-        # print "__setattr__", attribute_name, value
         Parameterized.__setattr__(self, attribute_name, value)
         Parameterized.__setattr__(self,'cached_get_param_values',None)
 
@@ -286,7 +285,6 @@ class MozaikParametrized(Parameterized):
                 settings.append('\"%s\":%s' % (name, repr(val)))
         
         r = "{\"module_path\" :" + "\"" + self.module_path + "\"" +',' + ", ".join(settings) + "}"
-        # print r
         return r
 
     def __repr__(self):

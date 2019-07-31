@@ -172,7 +172,6 @@ class DataStoreView(ParametrizedObject):
         
         This command should return or ADS whose identifier is *PerNeuronValue* or *SingleValue*, and are associated with sheet named *sheet* and as their value name have 'orientation preference'
         """
-        print "get_analysis_result", kwargs
         return filter_query(self.analysis_results,**kwargs)
 
     def get_sensory_stimulus(self, stimuli=None):
@@ -215,10 +214,6 @@ class DataStoreView(ParametrizedObject):
         """
         Utility function that makes a shallow copy of the list holding recordings.
         """
-        for s in self.block.segments:
-            for a in s.analogsignals:
-                print "asig recordings_copy", a.name, a 
-
         return self.block.segments[:]
 
     def fromDataStoreView(self):
@@ -554,9 +549,6 @@ class PickledDataStore(Hdf5DataStore):
     def add_recording(self, segments, stimulus):
         # we get recordings as seg
         for s in segments:
-            for a in s.analogsignals:
-                print "pickled add_recording",a.name, a
-            # print "add_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
                 PickledDataStoreNeoWrapper(s,
@@ -575,9 +567,6 @@ class PickledDataStore(Hdf5DataStore):
         """
         # we get recordings as seg
         for s in segments:
-            for a in s.analogsignals:
-                print "pickled add_null_recording", a.name, a
-            # print "add_null_recording", stimulus, str(stimulus), stimulus.name # #########################
             s.annotations['stimulus'] = str(stimulus)
             self.block.segments.append(
                 PickledDataStoreNeoWrapper(s,

@@ -647,7 +647,7 @@ class VmPlot(Plotting):
         return PerStimulusPlot(dsv, function=self._ploter, title_style="Clever").make_line_plot(subplotspec)
 
     def _ploter(self, dsv,gs):
-        vms = [s.get_vm(self.parameters.neuron) for s in sorted(dsv.get_segments(),key = lambda x : MozaikParametrized.idd(x.annotations['stimulus']).trial)]
+        vms = [s.get_vm(self.parameters.neuron) for s in sorted(dsv.get_segments(), key = lambda x : MozaikParametrized.idd(x.annotations['stimulus']).trial)]
         print "plotting - VmPlot", vms
         time_axis = numpy.arange(0, len(vms[0]), 1) / float(len(vms[0])) * float(vms[0].t_stop) + float(vms[0].t_start)
         t_stop = float(vms[0].t_stop - vms[0].sampling_period)
@@ -663,7 +663,6 @@ class VmPlot(Plotting):
            vms1 = [numpy.concatenate((svm.magnitude,vm.magnitude)) for vm,svm in zip(vms,spont_vms)]
         else:
            vms1 = vms 
-        
         
         xs = []
         ys = []
