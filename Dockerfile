@@ -5,7 +5,7 @@
 #
 # Usage:
 #
-# docker build --no-chache -t mozaik .
+# docker build --no-cache -t mozaik .
 # docker ps
 # docker run -e DISPLAY=$DISPLAY -v `pwd`:`pwd` -w `pwd` -i -t mozaik /bin/bash
 
